@@ -199,10 +199,8 @@
         };
         let categoryOptions = JSON.parse(localStorage.getItem('myInventoryCategories')) || JSON.parse(JSON.stringify(defaultCategories));
         
-        // 模擬資料 (若未設定 API 則顯示此)
-        let mockData = [
-            { id: 1, type: 'food', name: "範例：銀座咖哩", brand: "明治", expiry: "2024-12-30", category: "料理包", qty: 2, tags: "需微波", notes: "這是範例資料", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=500&q=60" },
-        ];
+        // 模擬資料 (已清空，準備上線使用)
+        let mockData = [];
         let inventory = [...mockData];
 
         let currentTab = 'food';
@@ -213,7 +211,7 @@
         // 2. 雲端同步邏輯
         async function fetchCloudData() {
             const apiUrl = localStorage.getItem('myInventoryApiUrl');
-            if (!apiUrl) return; // 沒設定就不動作，使用預設資料
+            if (!apiUrl) return; 
 
             const loader = document.getElementById('loading-indicator');
             loader.classList.remove('hidden');
@@ -223,15 +221,17 @@
                 const data = await response.json();
                 
                 if (Array.isArray(data) && data.length > 0) {
-                    inventory = data; // 覆蓋本地資料
+                    // 確保每個項目都有 ID
+                    inventory = data.map((item, index) => ({
+                        ...item,
+                        id: item.id || `cloud-${Date.now()}-${index}`
+                    }));
                 } else {
-                    // API 回傳空陣列，保持空或使用空陣列
                     inventory = []; 
                 }
                 renderCards();
             } catch (error) {
                 console.error("同步失敗:", error);
-                // 失敗時不報錯，維持現狀 (或可顯示 Toast)
             } finally {
                 loader.classList.add('hidden');
             }
@@ -290,7 +290,7 @@
 
         function renderCards() {
             const container = document.getElementById('item-container');
-            container.innerHTML = '';
+            let htmlContent = ''; // 累積 HTML 字串
 
             let filteredData = inventory.filter(item => {
                 if (item.type !== currentTab) return false;
@@ -310,19 +310,20 @@
             }
 
             filteredData.forEach(item => {
+                // 確保 item.id 存在，防止刪除失效
+                const itemId = item.id || `temp-${Math.random()}`; 
+                
                 const days = getDaysRemaining(item.expiry);
                 const status = getStatusInfo(days);
                 const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : 'https://placehold.co/100x100?text=No+Image';
                 
-                // Tags
                 let tagsHtml = '';
                 if (item.tags) {
                     tagsHtml = item.tags.toString().split(/[ ,，]+/).map(t => t ? `<span class="text-[10px] text-stone-400 px-1 py-0.5 bg-stone-100 rounded mr-1"><i class="fa-solid fa-tag mr-1 text-stone-300"></i>${t}</span>` : '').join('');
                 }
-                // Notes
                 let notesHtml = item.notes ? `<div class="mt-1 text-[11px] text-stone-500 bg-yellow-50 p-1 rounded border border-yellow-100"><i class="fa-regular fa-sticky-note mr-1 text-yellow-600"></i>${item.notes}</div>` : '';
 
-                const cardHtml = `
+                htmlContent += `
                 <div class="bg-white rounded-xl overflow-hidden card-shadow flex flex-row min-h-[8rem] relative border border-stone-100">
                     <div class="w-28 relative bg-stone-100 flex-shrink-0">
                         <img src="${imgUrl}" alt="${item.name}" class="w-full h-full object-cover">
@@ -341,11 +342,33 @@
                             </div>
                             ${notesHtml}
                         </div>
-                        <div class="flex justify-end items-center mt-2"><div class="text-[10px] text-stone-400">效期: ${item.expiry.substring(0, 10)}</div></div>
+                        <div class="flex justify-between items-end mt-2">
+                            <div class="text-[10px] text-stone-400">效期: ${item.expiry.substring(0, 10)}</div>
+                            <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 transition-colors p-2 active:scale-95" title="刪除/完食">
+                                <i class="fa-solid fa-trash-can text-lg"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>`;
-                container.innerHTML += cardHtml;
             });
+            container.innerHTML = htmlContent;
+        }
+
+        // 強制綁定到 window，確保全域可呼叫
+        window.deleteItem = function(id) {
+            console.log("嘗試刪除 ID:", id);
+            if(!confirm("確定要刪除/完食這個項目嗎？")) return;
+            
+            // 轉換為字串比較，確保不會因為型別問題導致刪除失敗
+            const originalLength = inventory.length;
+            inventory = inventory.filter(item => String(item.id || item.tempId) !== String(id));
+            
+            if (inventory.length === originalLength) {
+                console.warn("找不到 ID 為", id, "的項目，可能 ID 格式不符");
+                // 備用方案：如果真的找不到，強制重繪至少不會壞掉
+            }
+            
+            renderCards();
         }
 
         function updateAlertBanner() {
