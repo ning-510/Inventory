@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>居家物資管理系統</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,7 +14,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #fdfbf7; color: #4a4a4a; }
+        /* 防止手機左右滑動 */
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #fdfbf7; 
+            color: #4a4a4a; 
+            overflow-x: hidden; 
+            width: 100%;
+        }
         .tab-active { border-bottom: 3px solid #b91c1c; color: #b91c1c; font-weight: 700; }
         .tab-inactive { color: #9ca3af; border-bottom: 3px solid transparent; }
         .tab-inactive:hover { color: #4b5563; }
@@ -30,11 +37,11 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="min-h-screen pb-24 relative">
+<body class="min-h-screen pb-24 relative w-full">
 
     <!-- Header -->
-    <header class="bg-white sticky top-0 z-40 shadow-sm">
-        <div class="max-w-md mx-auto px-4 pt-4 pb-0">
+    <header class="bg-white sticky top-0 z-40 shadow-sm w-full">
+        <div class="max-w-md mx-auto px-4 pt-4 pb-0 w-full">
             <div class="flex justify-between items-center mb-4 relative">
                 <div class="w-8"></div> 
                 <h1 class="text-xl font-bold tracking-wider flex items-center justify-center">
@@ -68,7 +75,7 @@
     </header>
 
     <!-- Main View -->
-    <div id="view-main" class="view-section">
+    <div id="view-main" class="view-section w-full">
         <!-- 載入中提示 -->
         <div id="loading-indicator" class="hidden text-center py-2 bg-stone-50 text-xs text-stone-500">
             <div class="flex justify-center items-center gap-2">
@@ -76,47 +83,50 @@
             </div>
         </div>
 
-        <div id="alert-banner" class="hidden bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mx-auto max-w-md mt-4 text-sm shadow-sm animate-pulse" role="alert">
+        <div id="alert-banner" class="hidden bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mx-auto max-w-md mt-4 text-sm shadow-sm animate-pulse w-full box-border" role="alert">
             <p class="font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i> 注意！</p>
             <p id="alert-text">有 X 項商品即將過期。</p>
         </div>
 
-        <main class="max-w-md mx-auto px-4 mt-4">
-            <div id="sub-filters" class="flex overflow-x-auto gap-2 pb-2 mb-4 hide-scrollbar"></div>
-            <div id="item-container" class="grid grid-cols-1 gap-4"></div>
+        <main class="max-w-md mx-auto px-4 mt-4 w-full">
+            <div id="sub-filters" class="flex overflow-x-auto gap-2 pb-2 mb-4 hide-scrollbar w-full"></div>
+            <div id="item-container" class="grid grid-cols-1 gap-4 w-full"></div>
         </main>
 
-        <button onclick="openModal()" class="fixed bottom-6 right-6 bg-red-700 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl hover:bg-red-800 transition active:scale-90 z-50">
+        <button onclick="openAddModal()" class="fixed bottom-6 right-6 bg-red-700 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl hover:bg-red-800 transition active:scale-90 z-50">
             <i class="fa-solid fa-plus text-2xl"></i>
         </button>
     </div>
 
     <!-- Settings View -->
-    <div id="view-settings" class="view-section hidden-view max-w-md mx-auto px-4 mt-6 pb-20">
+    <div id="view-settings" class="view-section hidden-view max-w-md mx-auto px-4 mt-6 pb-20 w-full">
         <h2 class="text-lg font-bold text-stone-700 mb-4 px-2 border-l-4 border-red-700">分類管理</h2>
         <div class="space-y-6">
+            <!-- Food Settings -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
                 <h3 class="font-bold text-stone-600 mb-3">🍱 飲食類別 (Food)</h3>
                 <div class="flex flex-wrap gap-2 mb-3" id="settings-tags-food"></div>
                 <div class="flex gap-2">
-                    <input type="text" id="new-tag-food" placeholder="新增分類..." class="flex-1 bg-stone-50 border border-stone-200 rounded px-3 py-1 text-sm outline-none">
-                    <button onclick="addCategory('food')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700">新增</button>
+                    <input type="text" id="new-tag-food" placeholder="新增分類..." class="flex-1 bg-stone-50 border border-stone-200 rounded px-3 py-1 text-sm outline-none min-w-0">
+                    <button onclick="window.addCategory('food')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700 whitespace-nowrap">新增</button>
                 </div>
             </div>
+            <!-- Living Settings -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
                 <h3 class="font-bold text-stone-600 mb-3">🧻 日用類別 (Living)</h3>
                 <div class="flex flex-wrap gap-2 mb-3" id="settings-tags-living"></div>
                 <div class="flex gap-2">
-                    <input type="text" id="new-tag-living" placeholder="新增分類..." class="flex-1 bg-stone-50 border border-stone-200 rounded px-3 py-1 text-sm outline-none">
-                    <button onclick="addCategory('living')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700">新增</button>
+                    <input type="text" id="new-tag-living" placeholder="新增分類..." class="flex-1 bg-stone-50 border border-stone-200 rounded px-3 py-1 text-sm outline-none min-w-0">
+                    <button onclick="window.addCategory('living')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700 whitespace-nowrap">新增</button>
                 </div>
             </div>
+            <!-- Beauty Settings -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
                 <h3 class="font-bold text-stone-600 mb-3">💄 美妝類別 (Beauty)</h3>
                 <div class="flex flex-wrap gap-2 mb-3" id="settings-tags-beauty"></div>
                 <div class="flex gap-2">
-                    <input type="text" id="new-tag-beauty" placeholder="新增分類..." class="flex-1 bg-stone-50 border border-stone-200 rounded px-3 py-1 text-sm outline-none">
-                    <button onclick="addCategory('beauty')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700">新增</button>
+                    <input type="text" id="new-tag-beauty" placeholder="新增分類..." class="flex-1 bg-stone-50 border border-stone-200 rounded px-3 py-1 text-sm outline-none min-w-0">
+                    <button onclick="window.addCategory('beauty')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700 whitespace-nowrap">新增</button>
                 </div>
             </div>
         </div>
@@ -137,14 +147,18 @@
         </div>
     </div>
 
-    <!-- Modal -->
-    <div id="add-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center backdrop-blur-sm p-4">
+    <!-- Modal (新增/編輯共用) -->
+    <div id="add-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center backdrop-blur-sm p-4 w-full h-full">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]" id="modal-content">
             <div class="bg-stone-100 px-6 py-4 border-b border-stone-200 flex justify-between items-center flex-shrink-0">
-                <h3 class="font-bold text-lg text-stone-700">新增物品</h3>
+                <!-- 標題會動態改變 -->
+                <h3 id="modal-title" class="font-bold text-lg text-stone-700">新增物品</h3>
                 <button onclick="closeModal()" class="text-stone-400 hover:text-stone-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <form id="add-form" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <!-- 隱藏欄位：儲存編輯時的 ID -->
+                <input type="hidden" id="edit-id" value="">
+                
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">類型</label>
                     <select id="input-type" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none" onchange="updateModalCategoryOptions()">
@@ -184,7 +198,7 @@
                     <textarea id="input-notes" rows="2" placeholder="備註事項..." class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none"></textarea>
                 </div>
                 <button type="submit" id="submit-btn" class="w-full bg-red-700 text-white font-bold py-3 rounded-lg shadow-md hover:bg-red-800 transition transform active:scale-95 mt-4 flex-shrink-0 flex items-center justify-center">
-                    <span>加入庫存</span>
+                    <span id="submit-btn-text">加入庫存</span>
                 </button>
             </form>
         </div>
@@ -199,8 +213,7 @@
         };
         let categoryOptions = JSON.parse(localStorage.getItem('myInventoryCategories')) || JSON.parse(JSON.stringify(defaultCategories));
         
-        // 模擬資料 (已清空，準備上線使用)
-        let mockData = [];
+        let mockData = []; 
         let inventory = [...mockData];
 
         let currentTab = 'food';
@@ -221,7 +234,6 @@
                 const data = await response.json();
                 
                 if (Array.isArray(data) && data.length > 0) {
-                    // 確保每個項目都有 ID
                     inventory = data.map((item, index) => ({
                         ...item,
                         id: item.id || `cloud-${Date.now()}-${index}`
@@ -290,7 +302,7 @@
 
         function renderCards() {
             const container = document.getElementById('item-container');
-            let htmlContent = ''; // 累積 HTML 字串
+            let htmlContent = ''; 
 
             let filteredData = inventory.filter(item => {
                 if (item.type !== currentTab) return false;
@@ -310,9 +322,7 @@
             }
 
             filteredData.forEach(item => {
-                // 確保 item.id 存在，防止刪除失效
                 const itemId = item.id || `temp-${Math.random()}`; 
-                
                 const days = getDaysRemaining(item.expiry);
                 const status = getStatusInfo(days);
                 const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : 'https://placehold.co/100x100?text=No+Image';
@@ -324,7 +334,7 @@
                 let notesHtml = item.notes ? `<div class="mt-1 text-[11px] text-stone-500 bg-yellow-50 p-1 rounded border border-yellow-100"><i class="fa-regular fa-sticky-note mr-1 text-yellow-600"></i>${item.notes}</div>` : '';
 
                 htmlContent += `
-                <div class="bg-white rounded-xl overflow-hidden card-shadow flex flex-row min-h-[8rem] relative border border-stone-100">
+                <div class="bg-white rounded-xl overflow-hidden card-shadow flex flex-row min-h-[8rem] relative border border-stone-100 w-full">
                     <div class="w-28 relative bg-stone-100 flex-shrink-0">
                         <img src="${imgUrl}" alt="${item.name}" class="w-full h-full object-cover">
                         <span class="absolute top-0 left-0 bg-black/60 text-white text-[10px] px-2 py-1 rounded-br-lg">x${item.qty}</span>
@@ -344,9 +354,14 @@
                         </div>
                         <div class="flex justify-between items-end mt-2">
                             <div class="text-[10px] text-stone-400">效期: ${item.expiry.substring(0, 10)}</div>
-                            <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 transition-colors p-2 active:scale-95" title="刪除/完食">
-                                <i class="fa-solid fa-trash-can text-lg"></i>
-                            </button>
+                            <div class="flex gap-1">
+                                <button onclick="window.editItem('${itemId}')" class="text-stone-400 hover:text-blue-600 transition-colors p-2 active:scale-95" title="編輯">
+                                    <i class="fa-solid fa-pen text-sm"></i>
+                                </button>
+                                <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 transition-colors p-2 active:scale-95" title="刪除/完食">
+                                    <i class="fa-solid fa-trash-can text-lg"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>`;
@@ -354,21 +369,33 @@
             container.innerHTML = htmlContent;
         }
 
-        // 強制綁定到 window，確保全域可呼叫
+        // 綁定全域功能
         window.deleteItem = function(id) {
-            console.log("嘗試刪除 ID:", id);
             if(!confirm("確定要刪除/完食這個項目嗎？")) return;
-            
-            // 轉換為字串比較，確保不會因為型別問題導致刪除失敗
-            const originalLength = inventory.length;
             inventory = inventory.filter(item => String(item.id || item.tempId) !== String(id));
-            
-            if (inventory.length === originalLength) {
-                console.warn("找不到 ID 為", id, "的項目，可能 ID 格式不符");
-                // 備用方案：如果真的找不到，強制重繪至少不會壞掉
-            }
-            
             renderCards();
+        }
+
+        window.editItem = function(id) {
+            const item = inventory.find(i => String(i.id) === String(id));
+            if (!item) return;
+
+            document.getElementById('edit-id').value = item.id;
+            document.getElementById('input-type').value = item.type;
+            updateModalCategoryOptions();
+            
+            document.getElementById('input-name').value = item.name;
+            document.getElementById('input-category').value = item.category;
+            document.getElementById('input-qty').value = item.qty;
+            document.getElementById('input-expiry').value = item.expiry.substring(0, 10);
+            document.getElementById('input-image').value = item.image;
+            document.getElementById('input-tags').value = item.tags;
+            document.getElementById('input-notes').value = item.notes;
+
+            document.getElementById('modal-title').innerText = "編輯物品";
+            document.getElementById('submit-btn-text').innerText = "更新資料";
+            
+            openModal(true); 
         }
 
         function updateAlertBanner() {
@@ -419,14 +446,16 @@
                 container.innerHTML = '';
                 (categoryOptions[type] || []).forEach(cat => {
                     const tag = document.createElement('div');
-                    tag.className = "flex items-center bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-sm";
-                    tag.innerHTML = `<span>${cat}</span><button onclick="removeCategory('${type}', '${cat}')" class="ml-2 text-stone-400 hover:text-red-500"><i class="fa-solid fa-times-circle"></i></button>`;
+                    tag.className = "flex items-center bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-sm mb-1 mr-1";
+                    // 修正：使用全域 window.removeCategory 並處理引號
+                    tag.innerHTML = `<span>${cat}</span><button onclick="window.removeCategory('${type}', '${cat}')" class="ml-2 text-stone-400 hover:text-red-500 p-1"><i class="fa-solid fa-times-circle"></i></button>`;
                     container.appendChild(tag);
                 });
             });
         }
 
-        function addCategory(type) {
+        // 確保綁定到 window 以供 onclick 呼叫
+        window.addCategory = function(type) {
             const input = document.getElementById(`new-tag-${type}`);
             const val = input.value.trim();
             if (val && !categoryOptions[type].includes(val)) {
@@ -437,7 +466,8 @@
             }
         }
 
-        function removeCategory(type, val) {
+        // 確保綁定到 window 以供 onclick 呼叫
+        window.removeCategory = function(type, val) {
             if (confirm(`確定要刪除「${val}」分類嗎？`)) {
                 categoryOptions[type] = categoryOptions[type].filter(c => c !== val);
                 localStorage.setItem('myInventoryCategories', JSON.stringify(categoryOptions));
@@ -463,12 +493,25 @@
 
         // 6. Modal 與 表單
         const modal = document.getElementById('add-modal');
-        function openModal() {
+        function openAddModal() {
+            document.getElementById('edit-id').value = "";
+            document.getElementById('add-form').reset();
+            
+            document.getElementById('modal-title').innerText = "新增物品";
+            document.getElementById('submit-btn-text').innerText = "加入庫存";
+            document.getElementById('input-type').value = currentTab;
+            document.getElementById('input-expiry').valueAsDate = new Date();
+            
+            updateModalCategoryOptions();
+            openModal();
+        }
+
+        function openModal(isEdit = false) {
             modal.classList.remove('hidden');
             setTimeout(() => { document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0'); document.getElementById('modal-content').classList.add('scale-100', 'opacity-100'); }, 10);
-            document.getElementById('input-expiry').valueAsDate = new Date();
-            updateModalCategoryOptions();
+            if(!isEdit) updateModalCategoryOptions();
         }
+
         function closeModal() {
             document.getElementById('modal-content').classList.remove('scale-100', 'opacity-100'); document.getElementById('modal-content').classList.add('scale-95', 'opacity-0');
             setTimeout(() => modal.classList.add('hidden'), 200);
@@ -478,22 +521,25 @@
         function updateModalCategoryOptions() {
             const type = document.getElementById('input-type').value;
             const catSelect = document.getElementById('input-category');
+            const currentValue = catSelect.value;
+            
             catSelect.innerHTML = '';
             (categoryOptions[type] || []).forEach(cat => {
                 const opt = document.createElement('option');
                 opt.value = cat; opt.innerText = cat; catSelect.appendChild(opt);
             });
+            if(currentValue) catSelect.value = currentValue;
         }
 
-        // 表單送出 (新增物品)
         document.getElementById('add-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
-            const originalText = btn.innerHTML;
+            const originalText = document.getElementById('submit-btn-text').innerText;
             btn.innerHTML = '<div class="spinner border-white border-t-transparent"></div>'; 
             btn.disabled = true;
 
-            const newItem = {
+            const editId = document.getElementById('edit-id').value;
+            const itemData = {
                 type: document.getElementById('input-type').value,
                 name: document.getElementById('input-name').value,
                 expiry: document.getElementById('input-expiry').value,
@@ -505,30 +551,33 @@
                 brand: ""
             };
 
-            // 1. 本地更新 (讓使用者覺得很快)
-            inventory.push({ id: Date.now(), ...newItem });
-            renderCards();
-            closeModal();
-            document.getElementById('add-form').reset();
-            document.getElementById('input-type').value = currentTab;
-
-            // 2. 雲端同步
-            const apiUrl = localStorage.getItem('myInventoryApiUrl');
-            if (apiUrl) {
-                try {
-                    await fetch(apiUrl, {
-                        method: 'POST',
-                        mode: 'no-cors', // Google Script 簡易寫入通常使用 no-cors
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newItem)
-                    });
-                    console.log("已同步至雲端");
-                } catch (error) {
-                    alert("存入雲端時發生錯誤，請檢查網路或網址。");
+            if (editId) {
+                const index = inventory.findIndex(i => String(i.id) === String(editId));
+                if (index !== -1) {
+                    inventory[index] = { ...inventory[index], ...itemData };
+                    alert("資料已更新 (僅限本地，若需同步至 Sheet 請手動調整)");
+                }
+            } else {
+                inventory.push({ id: Date.now(), ...itemData });
+                const apiUrl = localStorage.getItem('myInventoryApiUrl');
+                if (apiUrl) {
+                    try {
+                        await fetch(apiUrl, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(itemData)
+                        });
+                        console.log("已同步至雲端");
+                    } catch (error) {
+                        alert("存入雲端時發生錯誤，請檢查網路或網址。");
+                    }
                 }
             }
 
-            btn.innerHTML = originalText;
+            renderCards();
+            closeModal();
+            btn.innerHTML = `<span id="submit-btn-text">${originalText}</span>`;
             btn.disabled = false;
         });
 
@@ -538,7 +587,6 @@
             updateModalCategoryOptions();
             initFilters();
             renderCards();
-            // 嘗試載入雲端資料
             if (localStorage.getItem('myInventoryApiUrl')) {
                 fetchCloudData();
             }
