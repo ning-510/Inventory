@@ -79,7 +79,7 @@
         <!-- 載入中提示 -->
         <div id="loading-indicator" class="hidden text-center py-2 bg-stone-50 text-xs text-stone-500">
             <div class="flex justify-center items-center gap-2">
-                <div class="spinner"></div> 正在同步雲端資料...
+                <div class="spinner"></div> 正在從 Google 讀取資料...
             </div>
         </div>
 
@@ -211,10 +211,11 @@
             living: ['清潔', '日用', '廚房', '衛浴', '收納'],
             beauty: ['保養', '化妝', '香氛', '髮品']
         };
+        // 分類設定仍保留在本機 (使用者偏好)
         let categoryOptions = JSON.parse(localStorage.getItem('myInventoryCategories')) || JSON.parse(JSON.stringify(defaultCategories));
         
-        let mockData = []; 
-        let inventory = [...mockData];
+        // 修改：完全不從 LocalStorage 讀取資料，初始化為空
+        let inventory = [];
 
         let currentTab = 'food';
         let currentFilter = 'all';
@@ -231,9 +232,11 @@
 
             try {
                 const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error("網路回應不正確");
                 const data = await response.json();
                 
-                if (Array.isArray(data) && data.length > 0) {
+                if (Array.isArray(data)) {
+                    // 完全覆蓋本地資料，以雲端為準
                     inventory = data.map((item, index) => ({
                         ...item,
                         id: item.id || `cloud-${Date.now()}-${index}`
@@ -244,6 +247,7 @@
                 renderCards();
             } catch (error) {
                 console.error("同步失敗:", error);
+                alert("無法從 Google 讀取資料，請檢查網路或網址設定。");
             } finally {
                 loader.classList.add('hidden');
             }
@@ -371,7 +375,7 @@
 
         // 綁定全域功能
         window.deleteItem = function(id) {
-            if(!confirm("確定要刪除/完食這個項目嗎？")) return;
+            if(!confirm("確定要刪除/完食這個項目嗎？(注意：目前僅刪除顯示，重整後若雲端有資料會再出現)")) return;
             inventory = inventory.filter(item => String(item.id || item.tempId) !== String(id));
             renderCards();
         }
@@ -557,26 +561,43 @@
                     inventory[index] = { ...inventory[index], ...itemData };
                     alert("資料已更新 (僅限本地，若需同步至 Sheet 請手動調整)");
                 }
+                renderCards();
+                closeModal();
             } else {
-                inventory.push({ id: Date.now(), ...itemData });
+                // --- 新增模式 (Cloud First) ---
                 const apiUrl = localStorage.getItem('myInventoryApiUrl');
                 if (apiUrl) {
                     try {
-                        await fetch(apiUrl, {
+                        // 使用 text/plain 以避免 OPTIONS 預檢請求失敗 (常見的 GAS CORS 問題解法)
+                        const response = await fetch(apiUrl, {
                             method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                             body: JSON.stringify(itemData)
                         });
-                        console.log("已同步至雲端");
+                        
+                        if (!response.ok) throw new Error("Server response not ok");
+                        
+                        // 成功後，更新本地顯示 (為了即時性，我們先 Push，但因為您要求直接存 Google，
+                        // 我們這裡已經確認 Google 存成功了，所以顯示是安全的)
+                        inventory.push({ id: Date.now(), ...itemData });
+                        renderCards();
+                        closeModal();
+                        console.log("已成功同步至雲端");
+                        
                     } catch (error) {
-                        alert("存入雲端時發生錯誤，請檢查網路或網址。");
+                        alert("存入 Google 失敗！請檢查網路連線或 Apps Script 網址。\n(資料尚未儲存)");
+                        console.error(error);
+                        // 失敗時不關閉視窗，讓使用者可以重試
                     }
+                } else {
+                    // 若未設定 API，則僅本地新增 (或提示使用者)
+                    inventory.push({ id: Date.now(), ...itemData });
+                    renderCards();
+                    closeModal();
+                    alert("提醒：您尚未設定 Google 連結，資料僅暫存於記憶體中，重整後將消失。");
                 }
             }
 
-            renderCards();
-            closeModal();
             btn.innerHTML = `<span id="submit-btn-text">${originalText}</span>`;
             btn.disabled = false;
         });
