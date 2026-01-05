@@ -250,10 +250,6 @@
                     <input type="date" id="input-expiry" required class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none text-stone-600">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">圖片連結</label>
-                    <input type="text" id="input-image" placeholder="https://..." class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
-                </div>
-                <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">標籤 (Tags)</label>
                     <input type="text" id="input-tags" placeholder="需微波, 辣味..." class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
                     <!-- 快速選擇常用標籤 -->
@@ -633,24 +629,28 @@
                     `;
                 }
 
+                // --- Layout without Image ---
                 htmlContent += `
-                <div class="bg-white rounded-xl overflow-hidden card-shadow flex flex-row min-h-[8rem] relative border border-stone-100 w-full">
-                    <div class="w-28 relative bg-stone-100 flex-shrink-0">
-                        <img src="${imgUrl}" class="w-full h-full object-cover">
-                        <span class="absolute top-0 left-0 bg-black/60 text-white text-[10px] px-2 py-1 rounded-br-lg">x${item.qty}</span>
-                    </div>
-                    <div class="flex-1 p-3 flex flex-col justify-between min-w-0">
-                        <div>
-                            <div class="flex justify-between items-start mb-1">
-                                <span class="text-[10px] font-bold text-stone-400 tracking-wide uppercase truncate pr-2">${item.brand || ''}</span>
-                                ${statusBadgeHtml}
+                <div class="bg-white rounded-xl overflow-hidden card-shadow p-4 relative border border-stone-100 mb-4">
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="flex flex-col">
+                            <span class="text-[10px] font-bold text-stone-400 tracking-wide uppercase truncate pr-2">${item.brand || ''}</span>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-stone-800 text-base leading-tight line-clamp-1">${item.name}</h3>
+                                <span class="bg-stone-100 text-stone-600 text-[10px] font-bold px-1.5 py-0.5 rounded">x${item.qty}</span>
                             </div>
-                            <h3 class="font-bold text-stone-800 text-sm leading-tight line-clamp-1">${item.name}</h3>
-                            <div class="mt-1 flex flex-wrap gap-1">${tagsHtml}</div>
                         </div>
-                        <div class="flex justify-end items-center mt-2 gap-1 w-full">
-                            ${cardActionHtml}
-                        </div>
+                        ${statusBadgeHtml}
+                    </div>
+                    
+                    <div class="mt-2 flex flex-wrap gap-1 items-center">
+                        <span class="text-[10px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-medium">${item.category}</span>
+                        ${tagsHtml}
+                    </div>
+                    ${item.notes ? `<div class="mt-2 text-[11px] text-stone-500 bg-yellow-50 p-2 rounded border border-yellow-100 flex items-start"><i class="fa-regular fa-sticky-note mr-1 mt-0.5 text-yellow-600"></i>${item.notes}</div>` : ''}
+                    
+                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-stone-50">
+                        ${cardActionHtml}
                     </div>
                 </div>`;
             });
@@ -762,7 +762,8 @@
             if (item.expiry) {
                 document.getElementById('input-expiry').value = item.expiry.substring(0, 10);
             }
-            document.getElementById('input-image').value = item.image;
+            // Remove image population
+            // document.getElementById('input-image').value = item.image;
             document.getElementById('input-tags').value = item.tags;
             document.getElementById('input-notes').value = item.notes;
             document.getElementById('modal-title').innerText = "編輯物品";
@@ -1008,7 +1009,7 @@
                 qty: parseInt(document.getElementById('input-qty').value),
                 tags: document.getElementById('input-tags').value,
                 notes: document.getElementById('input-notes').value,
-                image: document.getElementById('input-image').value,
+                image: "", // Image removed
                 status: document.getElementById('input-status').value, 
                 brand: ""
             };
