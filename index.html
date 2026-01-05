@@ -26,10 +26,15 @@
         .tab-inactive { color: #9ca3af; border-bottom: 3px solid transparent; }
         .tab-inactive:hover { color: #4b5563; }
         .filter-chip.active { background-color: #4a4a4a; color: white; }
+        /* Tag Filter Styles */
+        .tag-filter.active { background-color: #b91c1c; color: white; border-color: #b91c1c; }
+        /* Settings Tag Styles */
+        .settings-tag-chip { transition: all 0.2s; }
+        .settings-tag-chip.editing { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; transform: scale(1.05); }
+        
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); transition: transform 0.2s; }
-        .card-shadow:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025); }
         .view-section { transition: opacity 0.3s ease-in-out; }
         .hidden-view { display: none; opacity: 0; }
         /* Loading Spinner */
@@ -42,10 +47,10 @@
     <!-- Header -->
     <header class="bg-white sticky top-0 z-40 shadow-sm w-full">
         <div class="max-w-md mx-auto px-4 pt-4 pb-0 w-full">
-            <div class="flex justify-between items-center mb-4 relative">
+            <div class="flex justify-between items-center mb-3 relative">
                 <div class="w-8"></div> 
                 <h1 class="text-xl font-bold tracking-wider flex items-center justify-center">
-                    <i class="fa-solid fa-house-chimney mr-2 text-stone-600"></i>居家物資管理
+                    <i class="fa-solid fa-house-chimney mr-2 text-stone-600"></i>居家物資
                 </h1>
                 <button onclick="toggleSettings()" class="w-8 h-8 flex items-center justify-center text-stone-400 hover:text-stone-600 transition">
                     <i class="fa-solid fa-gear text-lg" id="settings-icon"></i>
@@ -59,15 +64,19 @@
                     <i class="fa-solid fa-search absolute left-4 top-2.5 text-stone-400"></i>
                 </div>
 
-                <div class="flex justify-center text-center border-b border-stone-200">
-                    <button onclick="switchTab('food')" id="tab-food" class="tab-active py-3 flex-1 transition-all">
-                        <span class="block text-xl mb-1">🍱</span><span class="text-sm">飲食</span>
+                <div class="flex justify-between text-center border-b border-stone-200">
+                    <button onclick="switchTab('food')" id="tab-food" class="tab-active py-2 flex-1 transition-all">
+                        <span class="block text-lg mb-0.5">🍱</span><span class="text-xs font-bold">飲食</span>
                     </button>
-                    <button onclick="switchTab('living')" id="tab-living" class="tab-inactive py-3 flex-1 transition-all">
-                        <span class="block text-xl mb-1">🧻</span><span class="text-sm">日用</span>
+                    <button onclick="switchTab('living')" id="tab-living" class="tab-inactive py-2 flex-1 transition-all">
+                        <span class="block text-lg mb-0.5">🧻</span><span class="text-xs font-bold">日用</span>
                     </button>
-                    <button onclick="switchTab('beauty')" id="tab-beauty" class="tab-inactive py-3 flex-1 transition-all">
-                        <span class="block text-xl mb-1">💄</span><span class="text-sm">美妝</span>
+                    <button onclick="switchTab('beauty')" id="tab-beauty" class="tab-inactive py-2 flex-1 transition-all">
+                        <span class="block text-lg mb-0.5">💄</span><span class="text-xs font-bold">美妝</span>
+                    </button>
+                    <!-- 新增採買 Tab -->
+                    <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-inactive py-2 flex-1 transition-all border-l border-stone-100 bg-stone-50">
+                        <span class="block text-lg mb-0.5">🛒</span><span class="text-xs font-bold text-stone-600">待買</span>
                     </button>
                 </div>
             </div>
@@ -82,6 +91,13 @@
                 <div class="spinner"></div> 正在從 Google 讀取資料...
             </div>
         </div>
+        <!-- 寫入中提示 (Overlay) -->
+        <div id="sync-overlay" class="fixed inset-0 bg-black/30 z-[70] hidden flex items-center justify-center backdrop-blur-sm">
+             <div class="bg-white p-4 rounded-xl shadow-lg flex items-center gap-3">
+                <div class="spinner"></div>
+                <span class="text-sm font-bold text-stone-600">正在寫入雲端...</span>
+             </div>
+        </div>
 
         <div id="alert-banner" class="hidden bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mx-auto max-w-md mt-4 text-sm shadow-sm animate-pulse w-full box-border" role="alert">
             <p class="font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i> 注意！</p>
@@ -89,7 +105,14 @@
         </div>
 
         <main class="max-w-md mx-auto px-4 mt-4 w-full">
-            <div id="sub-filters" class="flex overflow-x-auto gap-2 pb-2 mb-4 hide-scrollbar w-full"></div>
+            <!-- 分類篩選 (Category Filters) -->
+            <div id="sub-filters" class="flex overflow-x-auto gap-2 pb-2 mb-2 hide-scrollbar w-full"></div>
+            
+            <!-- 標籤篩選 (Tag Filters) -->
+            <div id="tag-filters-container" class="flex overflow-x-auto gap-2 pb-2 mb-4 hide-scrollbar w-full border-t border-stone-100 pt-2">
+                <!-- JS Inject -->
+            </div>
+
             <div id="item-container" class="grid grid-cols-1 gap-4 w-full"></div>
         </main>
 
@@ -101,6 +124,7 @@
     <!-- Settings View -->
     <div id="view-settings" class="view-section hidden-view max-w-md mx-auto px-4 mt-6 pb-20 w-full">
         <h2 class="text-lg font-bold text-stone-700 mb-4 px-2 border-l-4 border-red-700">分類管理</h2>
+        
         <div class="space-y-6">
             <!-- Food Settings -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
@@ -131,6 +155,38 @@
             </div>
         </div>
 
+        <!-- Common Tags Settings -->
+        <h2 class="text-lg font-bold text-stone-700 mb-4 mt-8 px-2 border-l-4 border-yellow-500">常用標籤管理</h2>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
+            <p class="text-xs text-stone-400 mb-3">點擊上方標籤可進行編輯或刪除。</p>
+            
+            <!-- Tags List -->
+            <div class="flex flex-wrap gap-2 mb-4" id="settings-common-tags"></div>
+            
+            <!-- Input Area -->
+            <div class="flex flex-col gap-2 bg-stone-50 p-3 rounded-lg border border-stone-200">
+                <label class="text-xs font-bold text-stone-500 uppercase" id="tag-input-label">新增標籤</label>
+                <div class="flex gap-2">
+                    <input type="text" id="new-common-tag" placeholder="輸入標籤名稱..." class="flex-1 bg-white border border-stone-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 min-w-0">
+                    
+                    <!-- Add/Update Button -->
+                    <button id="btn-save-tag" onclick="window.handleSaveTag()" class="bg-stone-600 text-white px-4 py-2 rounded text-sm hover:bg-stone-700 font-medium whitespace-nowrap shadow-sm">
+                        新增
+                    </button>
+                </div>
+                
+                <!-- Edit Actions (Hidden by default) -->
+                <div id="edit-tag-actions" class="hidden flex gap-2 justify-end mt-1">
+                    <button onclick="window.handleDeleteTag()" class="text-red-500 hover:text-red-700 text-xs px-2 py-1 font-bold flex items-center">
+                        <i class="fa-solid fa-trash-can mr-1"></i> 刪除此標籤
+                    </button>
+                    <button onclick="window.cancelEditCommonTag()" class="text-stone-400 hover:text-stone-600 text-xs px-2 py-1 font-bold border border-stone-300 rounded bg-white">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <h2 class="text-lg font-bold text-stone-700 mb-4 mt-8 px-2 border-l-4 border-stone-500">系統連結</h2>
         <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
             <label class="block text-xs font-bold text-stone-500 mb-2 uppercase">Google Web App URL</label>
@@ -141,23 +197,23 @@
                 <button onclick="fetchCloudData()" class="px-4 bg-stone-200 text-stone-600 rounded text-sm font-bold hover:bg-stone-300" title="強制重新整理"><i class="fa-solid fa-sync"></i></button>
             </div>
         </div>
-
-        <div class="mt-8 text-center">
-            <button onclick="resetToDefaults()" class="text-red-400 text-xs underline hover:text-red-600">重置所有設定</button>
+        
+        <div class="mt-8 text-center pb-8">
+             <button onclick="resetToDefaults()" class="text-red-400 text-xs underline hover:text-red-600">重置所有設定</button>
         </div>
     </div>
 
-    <!-- Modal (新增/編輯共用) -->
+    <!-- Modal: 新增/編輯 -->
     <div id="add-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center backdrop-blur-sm p-4 w-full h-full">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]" id="modal-content">
             <div class="bg-stone-100 px-6 py-4 border-b border-stone-200 flex justify-between items-center flex-shrink-0">
-                <!-- 標題會動態改變 -->
                 <h3 id="modal-title" class="font-bold text-lg text-stone-700">新增物品</h3>
-                <button onclick="closeModal()" class="text-stone-400 hover:text-stone-600"><i class="fa-solid fa-times text-xl"></i></button>
+                <button onclick="closeModal('add-modal')" class="text-stone-400 hover:text-stone-600"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <form id="add-form" class="p-6 space-y-4 overflow-y-auto flex-1">
-                <!-- 隱藏欄位：儲存編輯時的 ID -->
                 <input type="hidden" id="edit-id" value="">
+                <!-- 預設狀態為庫存 -->
+                <input type="hidden" id="input-status" value="in_stock">
                 
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">類型</label>
@@ -173,7 +229,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">細項分類</label>
+                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">分類</label>
                         <select id="input-category" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none"></select>
                     </div>
                     <div>
@@ -191,7 +247,11 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">標籤 (Tags)</label>
-                    <input type="text" id="input-tags" placeholder="例如：需微波, 辣味" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
+                    <input type="text" id="input-tags" placeholder="需微波, 辣味..." class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
+                    <!-- 快速選擇常用標籤 -->
+                    <div id="modal-quick-tags" class="flex flex-wrap gap-2 mt-2">
+                        <!-- JS Inject -->
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">備註 (Notes)</label>
@@ -204,6 +264,30 @@
         </div>
     </div>
 
+    <!-- Modal: 快速補貨 (Restock) -->
+    <div id="restock-modal" class="fixed inset-0 bg-black/60 z-[80] hidden flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 transform transition-all scale-95 opacity-0" id="restock-content">
+            <h3 class="text-xl font-bold text-stone-800 mb-2">📦 補貨入庫</h3>
+            <p id="restock-item-name" class="text-stone-500 text-sm mb-4">商品名稱</p>
+            
+            <form id="restock-form" class="space-y-4">
+                <input type="hidden" id="restock-id">
+                <div>
+                    <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">新的有效期限 *</label>
+                    <input type="date" id="restock-expiry" required class="w-full bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-lg focus:ring-2 focus:ring-yellow-400 outline-none text-stone-700 font-bold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">補貨數量</label>
+                    <input type="number" id="restock-qty" value="1" min="1" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 outline-none">
+                </div>
+                <div class="flex gap-3 mt-4">
+                    <button type="button" onclick="closeModal('restock-modal')" class="flex-1 py-3 rounded-lg border border-stone-300 text-stone-500 font-bold">取消</button>
+                    <button type="submit" class="flex-1 py-3 rounded-lg bg-green-600 text-white font-bold shadow-md hover:bg-green-700">確認入庫</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // 1. 設定與資料
         const defaultCategories = {
@@ -211,50 +295,26 @@
             living: ['清潔', '日用', '廚房', '衛浴', '收納'],
             beauty: ['保養', '化妝', '香氛', '髮品']
         };
-        // 分類設定仍保留在本機 (使用者偏好)
-        let categoryOptions = JSON.parse(localStorage.getItem('myInventoryCategories')) || JSON.parse(JSON.stringify(defaultCategories));
+        const defaultCommonTags = ['需微波', '需冷藏', '2-3人份', '辣味', '朋友送的', '快過期'];
         
-        // 修改：完全不從 LocalStorage 讀取資料，初始化為空
+        let categoryOptions = JSON.parse(localStorage.getItem('myInventoryCategories')) || JSON.parse(JSON.stringify(defaultCategories));
+        let commonTags = JSON.parse(localStorage.getItem('myInventoryCommonTags')) || defaultCommonTags;
+
         let inventory = [];
 
         let currentTab = 'food';
-        let currentFilter = 'all';
+        let currentFilter = 'all'; // Category filter
+        let currentTagFilter = null; // Tag filter
         let searchTerm = '';
         let isSettingsOpen = false;
+        
+        // Tag Editing State
+        let editingTagOriginalValue = null;
 
-        // 2. 雲端同步邏輯
-        async function fetchCloudData() {
-            const apiUrl = localStorage.getItem('myInventoryApiUrl');
-            if (!apiUrl) return; 
+        // --- Core Logic & Helpers (Moved to TOP to prevent ReferenceError) ---
 
-            const loader = document.getElementById('loading-indicator');
-            loader.classList.remove('hidden');
-
-            try {
-                const response = await fetch(apiUrl);
-                if (!response.ok) throw new Error("網路回應不正確");
-                const data = await response.json();
-                
-                if (Array.isArray(data)) {
-                    // 完全覆蓋本地資料，以雲端為準
-                    inventory = data.map((item, index) => ({
-                        ...item,
-                        id: item.id || `cloud-${Date.now()}-${index}`
-                    }));
-                } else {
-                    inventory = []; 
-                }
-                renderCards();
-            } catch (error) {
-                console.error("同步失敗:", error);
-                alert("無法從 Google 讀取資料，請檢查網路或網址設定。");
-            } finally {
-                loader.classList.add('hidden');
-            }
-        }
-
-        // 3. 核心邏輯
         function getDaysRemaining(dateString) {
+            if (!dateString) return 999;
             const today = new Date(); today.setHours(0,0,0,0);
             const expiry = new Date(dateString);
             return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24)); 
@@ -268,23 +328,149 @@
             return { text: `剩 ${days} 天`, class: "bg-green-100 text-green-800 border border-green-200", icon: "fa-check" };
         }
 
+        function updateAlertBanner() {
+            let urgentCount = 0;
+            // 確保 inventory 有資料且 currentTab 不是 'shopping' (待買清單不計算過期)
+            if (inventory.length > 0 && currentTab !== 'shopping') {
+                inventory.filter(item => item.type === currentTab && item.status !== 'to_buy').forEach(item => {
+                    if (getDaysRemaining(item.expiry) <= 60) urgentCount++;
+                });
+            }
+
+            const banner = document.getElementById('alert-banner');
+            const tabNames = { food: '飲食', living: '日用', beauty: '美妝', shopping: '待買' };
+            
+            if (urgentCount > 0) {
+                banner.classList.remove('hidden');
+                document.getElementById('alert-text').innerHTML = `您的 <b>${tabNames[currentTab] || ''}</b> 庫存中，有 <span class="text-xl font-bold">${urgentCount}</span> 項物品即將在 2 個月內過期！`;
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        // --- 核心：雲端 CRUD 功能 ---
+        async function saveToCloud(action, data) {
+            const apiUrl = localStorage.getItem('myInventoryApiUrl');
+            if (!apiUrl) {
+                alert("請先在設定頁面設定 Google Web App URL！");
+                return false;
+            }
+
+            const overlay = document.getElementById('sync-overlay');
+            overlay.classList.remove('hidden');
+
+            try {
+                const payload = { action: action, ...data };
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    return true;
+                } else {
+                    throw new Error(result.message || "Unknown error");
+                }
+
+            } catch (error) {
+                console.error("雲端同步失敗:", error);
+                alert(`同步失敗：${error.message}\n請檢查網路或 App Script 是否已更新部署。`);
+                return false;
+            } finally {
+                overlay.classList.add('hidden');
+            }
+        }
+
+        async function fetchCloudData() {
+            const apiUrl = localStorage.getItem('myInventoryApiUrl');
+            if (!apiUrl) return; 
+
+            const loader = document.getElementById('loading-indicator');
+            loader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error("網路回應不正確");
+                const data = await response.json();
+                
+                if (Array.isArray(data)) {
+                    inventory = data.map((item, index) => ({
+                        ...item,
+                        id: String(item.id)
+                    }));
+                } else {
+                    inventory = []; 
+                }
+                renderCards();
+            } catch (error) {
+                console.error("讀取失敗:", error);
+                alert("無法從 Google 讀取資料。");
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
         // 4. UI 渲染
         function initFilters() {
+            // Category Filters
             const container = document.getElementById('sub-filters');
             container.innerHTML = '';
             
-            const allBtn = document.createElement('button');
-            allBtn.className = `filter-chip px-4 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap bg-stone-200 text-stone-600 hover:bg-stone-300 ${currentFilter === 'all' ? 'active' : ''}`;
-            allBtn.innerText = '全部顯示';
-            allBtn.onclick = () => { currentFilter = 'all'; initFilters(); renderCards(); };
-            container.appendChild(allBtn);
+            // 如果是購物清單，不需要顯示分類篩選
+            if (currentTab === 'shopping') {
+                container.innerHTML = '<div class="text-xs text-stone-400 py-1 px-2">🛒 點擊「入庫」即可將物品移回庫存</div>';
+            } else {
+                const allBtn = document.createElement('button');
+                allBtn.className = `filter-chip px-4 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap bg-stone-200 text-stone-600 hover:bg-stone-300 ${currentFilter === 'all' ? 'active' : ''}`;
+                allBtn.innerText = '全部顯示';
+                allBtn.onclick = () => { currentFilter = 'all'; initFilters(); renderCards(); };
+                container.appendChild(allBtn);
 
-            (categoryOptions[currentTab] || []).forEach(cat => {
+                (categoryOptions[currentTab] || []).forEach(cat => {
+                    const btn = document.createElement('button');
+                    btn.className = `filter-chip px-4 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap bg-stone-200 text-stone-600 hover:bg-stone-300 ${cat === currentFilter ? 'active' : ''}`;
+                    btn.innerText = cat === '冰箱' ? '❄️ 冰箱' : cat;
+                    btn.onclick = () => { currentFilter = cat; initFilters(); renderCards(); };
+                    container.appendChild(btn);
+                });
+            }
+
+            // Tag Filters
+            initTagFilters();
+        }
+
+        function initTagFilters() {
+            const tagContainer = document.getElementById('tag-filters-container');
+            tagContainer.innerHTML = '';
+
+            if (commonTags.length === 0) {
+                tagContainer.classList.add('hidden');
+                return;
+            }
+            tagContainer.classList.remove('hidden');
+
+            commonTags.forEach(tag => {
                 const btn = document.createElement('button');
-                btn.className = `filter-chip px-4 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap bg-stone-200 text-stone-600 hover:bg-stone-300 ${cat === currentFilter ? 'active' : ''}`;
-                btn.innerText = cat === '冰箱' ? '❄️ 冰箱' : cat;
-                btn.onclick = () => { currentFilter = cat; initFilters(); renderCards(); };
-                container.appendChild(btn);
+                const isActive = currentTagFilter === tag;
+                const baseClass = "px-3 py-1 rounded-full text-[11px] border transition whitespace-nowrap tag-filter";
+                const activeClass = isActive 
+                    ? "bg-stone-500 text-white border-stone-500" 
+                    : "bg-white text-stone-500 border-stone-200 hover:border-stone-400";
+                
+                btn.className = `${baseClass} ${activeClass}`;
+                btn.innerHTML = `<i class="fa-solid fa-tag mr-1"></i>${tag}`;
+                btn.onclick = () => {
+                    if (currentTagFilter === tag) {
+                        currentTagFilter = null; 
+                    } else {
+                        currentTagFilter = tag; 
+                    }
+                    initTagFilters(); 
+                    renderCards(); 
+                };
+                tagContainer.appendChild(btn);
             });
         }
 
@@ -292,16 +478,23 @@
             if (isSettingsOpen) toggleSettings();
             currentTab = tabName;
             currentFilter = 'all';
+            currentTagFilter = null; 
             
-            ['food', 'living', 'beauty'].forEach(t => {
+            ['food', 'living', 'beauty', 'shopping'].forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
-                el.className = (t === tabName) ? 'tab-active py-3 flex-1 transition-all' : 'tab-inactive py-3 flex-1 transition-all';
+                let activeClass = 'tab-active py-2 flex-1 transition-all';
+                let inactiveClass = 'tab-inactive py-2 flex-1 transition-all';
+                if(t === 'shopping') {
+                    activeClass += ' bg-stone-100 border-l border-stone-200';
+                    inactiveClass += ' bg-stone-50 border-l border-stone-100';
+                }
+                el.className = (t === tabName) ? activeClass : inactiveClass;
             });
 
             initFilters();
             renderCards();
             updateModalCategoryOptions();
-            document.getElementById('input-type').value = tabName;
+            document.getElementById('input-type').value = (tabName === 'shopping') ? 'food' : tabName;
         }
 
         function renderCards() {
@@ -309,16 +502,35 @@
             let htmlContent = ''; 
 
             let filteredData = inventory.filter(item => {
-                if (item.type !== currentTab) return false;
-                const matchesSearch = (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                      (item.brand || '').toLowerCase().includes(searchTerm.toLowerCase());
-                if (!matchesSearch) return false;
-                if (currentFilter !== 'all' && item.category !== currentFilter) return false;
+                // 1. Status Check based on Tab
+                if (currentTab === 'shopping') {
+                    if (item.status !== 'to_buy') return false;
+                } else {
+                    if (item.status === 'to_buy') return false; 
+                    if (item.type !== currentTab) return false;
+                }
+
+                // 2. Search
+                const search = searchTerm.toLowerCase();
+                if (!item.name.toLowerCase().includes(search) && !item.brand.toLowerCase().includes(search)) return false;
+                
+                // 3. Filters (Skip for shopping)
+                if (currentTab !== 'shopping') {
+                    if (currentFilter !== 'all' && item.category !== currentFilter) return false;
+                    if (currentTagFilter && !(item.tags || '').toLowerCase().includes(currentTagFilter.toLowerCase())) return false;
+                }
                 return true;
             });
 
-            filteredData.sort((a, b) => getDaysRemaining(a.expiry) - getDaysRemaining(b.expiry));
-            updateAlertBanner();
+            // Sort: Shopping list by name, others by expiry
+            if (currentTab === 'shopping') {
+                filteredData.sort((a, b) => a.name.localeCompare(b.name));
+            } else {
+                filteredData.sort((a, b) => getDaysRemaining(a.expiry) - getDaysRemaining(b.expiry));
+            }
+            
+            // Render UI
+            updateAlertBanner(); // Call helper after sorting logic
 
             if (filteredData.length === 0) {
                 container.innerHTML = `<div class="text-center py-10 text-stone-400"><i class="fa-solid fa-box-open text-4xl mb-3 opacity-30"></i><p>這裡空空的...</p></div>`;
@@ -326,46 +538,52 @@
             }
 
             filteredData.forEach(item => {
-                const itemId = item.id || `temp-${Math.random()}`; 
-                const days = getDaysRemaining(item.expiry);
-                const status = getStatusInfo(days);
-                const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : 'https://placehold.co/100x100?text=No+Image';
+                const itemId = String(item.id); 
+                const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : 'https://placehold.co/100x100?text=No+Img';
+                let tagsHtml = (item.tags || '').split(/[ ,，]+/).map(t => t ? `<span class="text-[10px] text-stone-400 px-1 py-0.5 bg-stone-100 rounded mr-1">#${t}</span>` : '').join('');
                 
-                let tagsHtml = '';
-                if (item.tags) {
-                    tagsHtml = item.tags.toString().split(/[ ,，]+/).map(t => t ? `<span class="text-[10px] text-stone-400 px-1 py-0.5 bg-stone-100 rounded mr-1"><i class="fa-solid fa-tag mr-1 text-stone-300"></i>${t}</span>` : '').join('');
+                // --- Card Content Decision ---
+                let cardActionHtml = '';
+                let statusBadgeHtml = '';
+                
+                if (currentTab === 'shopping') {
+                    // Shopping Card Style
+                    statusBadgeHtml = `<span class="bg-stone-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">待採買</span>`;
+                    cardActionHtml = `
+                        <button onclick="window.confirmRestock('${itemId}')" class="bg-green-600 text-white text-xs px-3 py-2 rounded shadow hover:bg-green-700 flex items-center">
+                            <i class="fa-solid fa-check mr-1"></i> 已買入庫
+                        </button>
+                    `;
+                } else {
+                    // Inventory Card Style
+                    const days = getDaysRemaining(item.expiry);
+                    const status = getStatusInfo(days);
+                    statusBadgeHtml = `<span class="${status.class} text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"><i class="fa-solid ${status.icon} mr-1"></i>${status.text}</span>`;
+                    cardActionHtml = `
+                        <div class="text-[10px] text-stone-400 mr-auto">效期: ${item.expiry.substring(0, 10)}</div>
+                        <button onclick="window.decreaseQty('${itemId}')" class="text-stone-400 hover:text-orange-600 p-2" title="-1"><i class="fa-solid fa-minus"></i></button>
+                        <button onclick="window.editItem('${itemId}')" class="text-stone-400 hover:text-blue-600 p-2"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 p-2"><i class="fa-solid fa-trash-can"></i></button>
+                    `;
                 }
-                let notesHtml = item.notes ? `<div class="mt-1 text-[11px] text-stone-500 bg-yellow-50 p-1 rounded border border-yellow-100"><i class="fa-regular fa-sticky-note mr-1 text-yellow-600"></i>${item.notes}</div>` : '';
 
                 htmlContent += `
                 <div class="bg-white rounded-xl overflow-hidden card-shadow flex flex-row min-h-[8rem] relative border border-stone-100 w-full">
                     <div class="w-28 relative bg-stone-100 flex-shrink-0">
-                        <img src="${imgUrl}" alt="${item.name}" class="w-full h-full object-cover">
+                        <img src="${imgUrl}" class="w-full h-full object-cover">
                         <span class="absolute top-0 left-0 bg-black/60 text-white text-[10px] px-2 py-1 rounded-br-lg">x${item.qty}</span>
                     </div>
                     <div class="flex-1 p-3 flex flex-col justify-between min-w-0">
                         <div>
                             <div class="flex justify-between items-start mb-1">
                                 <span class="text-[10px] font-bold text-stone-400 tracking-wide uppercase truncate pr-2">${item.brand || ''}</span>
-                                <span class="${status.class} text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex items-center"><i class="fa-solid ${status.icon} mr-1 text-[8px]"></i>${status.text}</span>
+                                ${statusBadgeHtml}
                             </div>
                             <h3 class="font-bold text-stone-800 text-sm leading-tight line-clamp-1">${item.name}</h3>
-                            <div class="mt-1 flex flex-wrap gap-1 items-center">
-                                <span class="text-[10px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-medium">${item.category}</span>
-                                ${tagsHtml}
-                            </div>
-                            ${notesHtml}
+                            <div class="mt-1 flex flex-wrap gap-1">${tagsHtml}</div>
                         </div>
-                        <div class="flex justify-between items-end mt-2">
-                            <div class="text-[10px] text-stone-400">效期: ${item.expiry.substring(0, 10)}</div>
-                            <div class="flex gap-1">
-                                <button onclick="window.editItem('${itemId}')" class="text-stone-400 hover:text-blue-600 transition-colors p-2 active:scale-95" title="編輯">
-                                    <i class="fa-solid fa-pen text-sm"></i>
-                                </button>
-                                <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 transition-colors p-2 active:scale-95" title="刪除/完食">
-                                    <i class="fa-solid fa-trash-can text-lg"></i>
-                                </button>
-                            </div>
+                        <div class="flex justify-end items-center mt-2 gap-1 w-full">
+                            ${cardActionHtml}
                         </div>
                     </div>
                 </div>`;
@@ -373,21 +591,81 @@
             container.innerHTML = htmlContent;
         }
 
-        // 綁定全域功能
-        window.deleteItem = function(id) {
-            if(!confirm("確定要刪除/完食這個項目嗎？(注意：目前僅刪除顯示，重整後若雲端有資料會再出現)")) return;
-            inventory = inventory.filter(item => String(item.id || item.tempId) !== String(id));
-            renderCards();
+        // --- User Actions ---
+
+        window.decreaseQty = async function(id) {
+            const item = inventory.find(i => i.id === id);
+            if (!item) return;
+            if (parseInt(item.qty) > 1) {
+                item.qty--;
+                await saveToCloud('update', item);
+                renderCards();
+            } else {
+                if (confirm(`「${item.name}」已用完！要加入採買清單嗎？\n(按「取消」則直接刪除)`)) {
+                    item.status = 'to_buy';
+                    item.qty = 1; 
+                    await saveToCloud('update', item);
+                    await fetchCloudData(); 
+                } else {
+                    await saveToCloud('delete', { id: id });
+                    inventory = inventory.filter(i => i.id !== id);
+                    renderCards();
+                }
+            }
+        }
+
+        window.confirmRestock = function(id) {
+            const item = inventory.find(i => i.id === id);
+            if (!item) return;
+            document.getElementById('restock-id').value = id;
+            document.getElementById('restock-item-name').innerText = item.name;
+            document.getElementById('restock-expiry').valueAsDate = new Date(); 
+            document.getElementById('restock-qty').value = 1;
+            
+            const modal = document.getElementById('restock-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => { 
+                document.getElementById('restock-content').classList.remove('scale-95', 'opacity-0'); 
+                document.getElementById('restock-content').classList.add('scale-100', 'opacity-100'); 
+            }, 10);
+        }
+
+        document.getElementById('restock-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('restock-id').value;
+            const newExpiry = document.getElementById('restock-expiry').value;
+            const newQty = document.getElementById('restock-qty').value;
+            
+            const item = inventory.find(i => i.id === id);
+            if (item) {
+                item.status = 'in_stock';
+                item.expiry = newExpiry;
+                item.qty = parseInt(newQty);
+                
+                closeModal('restock-modal');
+                const success = await saveToCloud('update', item);
+                if(success) {
+                    alert(`${item.name} 已入庫！`);
+                    switchTab(item.type); 
+                }
+            }
+        });
+
+        window.deleteItem = async function(id) {
+            if(!confirm("確定要刪除嗎？")) return;
+            if(await saveToCloud('delete', { id: id })) {
+                inventory = inventory.filter(i => i.id !== id);
+                renderCards();
+            }
         }
 
         window.editItem = function(id) {
-            const item = inventory.find(i => String(i.id) === String(id));
+            const item = inventory.find(i => i.id === id);
             if (!item) return;
-
             document.getElementById('edit-id').value = item.id;
+            document.getElementById('input-status').value = item.status; 
             document.getElementById('input-type').value = item.type;
             updateModalCategoryOptions();
-            
             document.getElementById('input-name').value = item.name;
             document.getElementById('input-category').value = item.category;
             document.getElementById('input-qty').value = item.qty;
@@ -395,70 +673,143 @@
             document.getElementById('input-image').value = item.image;
             document.getElementById('input-tags').value = item.tags;
             document.getElementById('input-notes').value = item.notes;
-
             document.getElementById('modal-title').innerText = "編輯物品";
             document.getElementById('submit-btn-text').innerText = "更新資料";
             
-            openModal(true); 
+            const modal = document.getElementById('add-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => { 
+                document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0'); 
+                document.getElementById('modal-content').classList.add('scale-100', 'opacity-100'); 
+            }, 10);
+            renderModalQuickTags();
         }
 
-        function updateAlertBanner() {
-            let urgentCount = 0;
-            inventory.filter(item => item.type === currentTab).forEach(item => {
-                if (getDaysRemaining(item.expiry) <= 60) urgentCount++;
-            });
-
-            const banner = document.getElementById('alert-banner');
-            const tabNames = { food: '飲食', living: '日用', beauty: '美妝' };
-            
-            if (urgentCount > 0) {
-                banner.classList.remove('hidden');
-                document.getElementById('alert-text').innerHTML = `您的 <b>${tabNames[currentTab]}</b> 庫存中，有 <span class="text-xl font-bold">${urgentCount}</span> 項物品即將在 2 個月內過期！`;
-            } else {
-                banner.classList.add('hidden');
-            }
-        }
-
-        // 5. 設定頁邏輯
+        // --- Settings / Tags Management ---
         function toggleSettings() {
             isSettingsOpen = !isSettingsOpen;
-            const mainView = document.getElementById('view-main');
-            const settingsView = document.getElementById('view-settings');
-            const mainHeaderContent = document.getElementById('main-header-content');
-            
             if (isSettingsOpen) {
-                mainView.classList.add('hidden-view');
-                mainHeaderContent.classList.add('hidden');
-                settingsView.classList.remove('hidden-view');
+                document.getElementById('view-main').classList.add('hidden-view');
+                document.getElementById('main-header-content').classList.add('hidden');
+                document.getElementById('view-settings').classList.remove('hidden-view');
                 document.getElementById('settings-icon').className = "fa-solid fa-times text-lg text-stone-800";
-                renderSettingsCategories();
+                renderSettingsCategories(); renderSettingsCommonTags(); 
+                cancelEditCommonTag(); // Reset edit state when entering settings
                 document.getElementById('settings-api-url').value = localStorage.getItem('myInventoryApiUrl') || '';
             } else {
-                settingsView.classList.add('hidden-view');
-                mainView.classList.remove('hidden-view');
-                mainHeaderContent.classList.remove('hidden');
+                document.getElementById('view-settings').classList.add('hidden-view');
+                document.getElementById('view-main').classList.remove('hidden-view');
+                document.getElementById('main-header-content').classList.remove('hidden');
                 document.getElementById('settings-icon').className = "fa-solid fa-gear text-lg";
-                initFilters();
-                updateModalCategoryOptions();
-                renderCards();
+                initFilters(); renderCards();
             }
         }
 
         function renderSettingsCategories() {
-            ['food', 'living', 'beauty'].forEach(type => {
-                const container = document.getElementById(`settings-tags-${type}`);
+            ['food', 'living', 'beauty'].forEach(t => {
+                const container = document.getElementById(`settings-tags-${t}`);
                 container.innerHTML = '';
-                (categoryOptions[type] || []).forEach(cat => {
+                (categoryOptions[t] || []).forEach(cat => {
                     const tag = document.createElement('div');
                     tag.className = "flex items-center bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-sm mb-1 mr-1";
-                    // 修正：使用全域 window.removeCategory 並處理引號
-                    tag.innerHTML = `<span>${cat}</span><button onclick="window.removeCategory('${type}', '${cat}')" class="ml-2 text-stone-400 hover:text-red-500 p-1"><i class="fa-solid fa-times-circle"></i></button>`;
+                    tag.innerHTML = `<span>${cat}</span><button onclick="window.removeCategory('${t}', '${cat}')" class="ml-2 text-stone-400 hover:text-red-500 p-1"><i class="fa-solid fa-times-circle"></i></button>`;
                     container.appendChild(tag);
                 });
             });
         }
 
-        // 確保綁定到 window 以供 onclick 呼叫
+        // --- Common Tags Management (Simpler Logic) ---
+        function renderSettingsCommonTags() {
+            const container = document.getElementById('settings-common-tags');
+            container.innerHTML = '';
+            commonTags.forEach(tag => {
+                const btn = document.createElement('button');
+                const isEditing = editingTagOriginalValue === tag;
+                
+                let baseClasses = "flex items-center px-3 py-2 rounded-lg text-sm border font-medium transition settings-tag-chip";
+                let stateClasses = isEditing 
+                    ? "bg-yellow-100 border-yellow-400 text-yellow-800 ring-2 ring-yellow-200 editing"
+                    : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50 hover:border-stone-300";
+                
+                btn.className = `${baseClasses} ${stateClasses}`;
+                btn.innerHTML = `<i class="fa-solid fa-tag mr-2 text-xs opacity-70"></i>${tag}`;
+                
+                btn.onclick = function() {
+                    window.startEditingTag(tag);
+                };
+                
+                container.appendChild(btn);
+            });
+        }
+
+        window.startEditingTag = function(tag) {
+            editingTagOriginalValue = tag;
+            const input = document.getElementById('new-common-tag');
+            input.value = tag;
+            input.focus();
+            
+            // UI Updates
+            document.getElementById('tag-input-label').innerText = "編輯標籤";
+            document.getElementById('btn-save-tag').innerText = "更新";
+            document.getElementById('btn-save-tag').className = "bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700 font-medium whitespace-nowrap shadow-sm";
+            document.getElementById('edit-tag-actions').classList.remove('hidden');
+            
+            renderSettingsCommonTags(); // Re-render to highlight selected
+        }
+
+        window.cancelEditCommonTag = function() {
+            editingTagOriginalValue = null;
+            document.getElementById('new-common-tag').value = '';
+            
+            // UI Reset
+            document.getElementById('tag-input-label').innerText = "新增標籤";
+            document.getElementById('btn-save-tag').innerText = "新增";
+            document.getElementById('btn-save-tag').className = "bg-stone-600 text-white px-4 py-2 rounded text-sm hover:bg-stone-700 font-medium whitespace-nowrap shadow-sm";
+            document.getElementById('edit-tag-actions').classList.add('hidden');
+            
+            renderSettingsCommonTags();
+        }
+
+        window.handleSaveTag = function() {
+            const input = document.getElementById('new-common-tag');
+            const val = input.value.trim();
+            if (!val) return;
+
+            if (editingTagOriginalValue) {
+                // Update
+                if (commonTags.includes(val) && val !== editingTagOriginalValue) {
+                    alert("該標籤已存在！");
+                    return;
+                }
+                const index = commonTags.indexOf(editingTagOriginalValue);
+                if (index !== -1) {
+                    commonTags[index] = val;
+                }
+            } else {
+                // Add
+                if (!commonTags.includes(val)) {
+                    commonTags.push(val);
+                } else {
+                    alert("該標籤已存在！");
+                    return;
+                }
+            }
+            
+            localStorage.setItem('myInventoryCommonTags', JSON.stringify(commonTags));
+            cancelEditCommonTag(); // Reset UI
+        }
+
+        window.handleDeleteTag = function() {
+            if (editingTagOriginalValue) {
+                if (confirm(`確定要刪除常用標籤「${editingTagOriginalValue}」嗎？`)) {
+                    commonTags = commonTags.filter(t => t !== editingTagOriginalValue);
+                    localStorage.setItem('myInventoryCommonTags', JSON.stringify(commonTags));
+                    cancelEditCommonTag();
+                }
+            }
+        }
+        // --- End Common Tags ---
+
         window.addCategory = function(type) {
             const input = document.getElementById(`new-tag-${type}`);
             const val = input.value.trim();
@@ -470,7 +821,6 @@
             }
         }
 
-        // 確保綁定到 window 以供 onclick 呼叫
         window.removeCategory = function(type, val) {
             if (confirm(`確定要刪除「${val}」分類嗎？`)) {
                 categoryOptions[type] = categoryOptions[type].filter(c => c !== val);
@@ -487,61 +837,59 @@
         }
 
         function resetToDefaults() {
-            if (confirm("這將會重置所有分類名稱，確定嗎？")) {
+            if (confirm("這將會重置所有分類與標籤設定，確定嗎？")) {
                 localStorage.removeItem('myInventoryCategories');
+                localStorage.removeItem('myInventoryCommonTags');
                 categoryOptions = JSON.parse(JSON.stringify(defaultCategories));
+                commonTags = JSON.parse(JSON.stringify(defaultCommonTags));
                 renderSettingsCategories();
+                renderSettingsCommonTags();
                 alert("已重置設定。");
             }
         }
 
-        // 6. Modal 與 表單
-        const modal = document.getElementById('add-modal');
+        // Modal Logic
         function openAddModal() {
             document.getElementById('edit-id').value = "";
             document.getElementById('add-form').reset();
-            
             document.getElementById('modal-title').innerText = "新增物品";
             document.getElementById('submit-btn-text').innerText = "加入庫存";
-            document.getElementById('input-type').value = currentTab;
+            document.getElementById('input-type').value = (currentTab === 'shopping') ? 'food' : currentTab;
+            document.getElementById('input-status').value = 'in_stock';
             document.getElementById('input-expiry').valueAsDate = new Date();
-            
-            updateModalCategoryOptions();
-            openModal();
-        }
-
-        function openModal(isEdit = false) {
+            updateModalCategoryOptions(); renderModalQuickTags();
+            const modal = document.getElementById('add-modal');
             modal.classList.remove('hidden');
             setTimeout(() => { document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0'); document.getElementById('modal-content').classList.add('scale-100', 'opacity-100'); }, 10);
-            if(!isEdit) updateModalCategoryOptions();
         }
-
-        function closeModal() {
-            document.getElementById('modal-content').classList.remove('scale-100', 'opacity-100'); document.getElementById('modal-content').classList.add('scale-95', 'opacity-0');
-            setTimeout(() => modal.classList.add('hidden'), 200);
+        function closeModal(id) {
+            const content = document.getElementById(id === 'add-modal' ? 'modal-content' : 'restock-content');
+            content.classList.remove('scale-100', 'opacity-100'); content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => document.getElementById(id).classList.add('hidden'), 200);
         }
-        modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-
-        function updateModalCategoryOptions() {
-            const type = document.getElementById('input-type').value;
-            const catSelect = document.getElementById('input-category');
-            const currentValue = catSelect.value;
-            
-            catSelect.innerHTML = '';
-            (categoryOptions[type] || []).forEach(cat => {
-                const opt = document.createElement('option');
-                opt.value = cat; opt.innerText = cat; catSelect.appendChild(opt);
+        function renderModalQuickTags() {
+            const c = document.getElementById('modal-quick-tags'); c.innerHTML = '';
+            commonTags.forEach(t => {
+                const b = document.createElement('button'); b.type='button';
+                b.className = "text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded hover:bg-stone-200";
+                b.innerText = t;
+                b.onclick = () => { const i = document.getElementById('input-tags'); i.value = i.value ? i.value + ", " + t : t; };
+                c.appendChild(b);
             });
-            if(currentValue) catSelect.value = currentValue;
+        }
+        function updateModalCategoryOptions() {
+            const t = document.getElementById('input-type').value;
+            const s = document.getElementById('input-category');
+            s.innerHTML = '';
+            (categoryOptions[t]||[]).forEach(c => { const o = document.createElement('option'); o.value = c; o.innerText = c; s.appendChild(o); });
         }
 
         document.getElementById('add-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
-            const originalText = document.getElementById('submit-btn-text').innerText;
-            btn.innerHTML = '<div class="spinner border-white border-t-transparent"></div>'; 
-            btn.disabled = true;
-
+            const txt = document.getElementById('submit-btn-text').innerText;
+            btn.innerHTML = '<div class="spinner border-white border-t-transparent"></div>'; btn.disabled = true;
+            
             const editId = document.getElementById('edit-id').value;
             const itemData = {
                 type: document.getElementById('input-type').value,
@@ -552,66 +900,24 @@
                 tags: document.getElementById('input-tags').value,
                 notes: document.getElementById('input-notes').value,
                 image: document.getElementById('input-image').value,
+                status: document.getElementById('input-status').value, 
                 brand: ""
             };
 
-            if (editId) {
-                const index = inventory.findIndex(i => String(i.id) === String(editId));
-                if (index !== -1) {
-                    inventory[index] = { ...inventory[index], ...itemData };
-                    alert("資料已更新 (僅限本地，若需同步至 Sheet 請手動調整)");
-                }
-                renderCards();
-                closeModal();
+            let success = false;
+            if(editId) {
+                const old = inventory.find(i => i.id === editId);
+                if(old) success = await saveToCloud('update', { ...old, ...itemData });
             } else {
-                // --- 新增模式 (Cloud First) ---
-                const apiUrl = localStorage.getItem('myInventoryApiUrl');
-                if (apiUrl) {
-                    try {
-                        // 使用 text/plain 以避免 OPTIONS 預檢請求失敗 (常見的 GAS CORS 問題解法)
-                        const response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            body: JSON.stringify(itemData)
-                        });
-                        
-                        if (!response.ok) throw new Error("Server response not ok");
-                        
-                        // 成功後，更新本地顯示 (為了即時性，我們先 Push，但因為您要求直接存 Google，
-                        // 我們這裡已經確認 Google 存成功了，所以顯示是安全的)
-                        inventory.push({ id: Date.now(), ...itemData });
-                        renderCards();
-                        closeModal();
-                        console.log("已成功同步至雲端");
-                        
-                    } catch (error) {
-                        alert("存入 Google 失敗！請檢查網路連線或 Apps Script 網址。\n(資料尚未儲存)");
-                        console.error(error);
-                        // 失敗時不關閉視窗，讓使用者可以重試
-                    }
-                } else {
-                    // 若未設定 API，則僅本地新增 (或提示使用者)
-                    inventory.push({ id: Date.now(), ...itemData });
-                    renderCards();
-                    closeModal();
-                    alert("提醒：您尚未設定 Google 連結，資料僅暫存於記憶體中，重整後將消失。");
-                }
+                success = await saveToCloud('create', itemData);
+                if(success) await fetchCloudData();
             }
 
-            btn.innerHTML = `<span id="submit-btn-text">${originalText}</span>`;
-            btn.disabled = false;
+            if(success) { renderCards(); closeModal('add-modal'); }
+            btn.innerHTML = `<span id="submit-btn-text">${txt}</span>`; btn.disabled = false;
         });
 
-        document.getElementById('searchInput').addEventListener('input', (e) => { searchTerm = e.target.value; renderCards(); });
-
-        window.onload = () => {
-            updateModalCategoryOptions();
-            initFilters();
-            renderCards();
-            if (localStorage.getItem('myInventoryApiUrl')) {
-                fetchCloudData();
-            }
-        }
+        window.onload = () => { updateModalCategoryOptions(); initFilters(); if(localStorage.getItem('myInventoryApiUrl')) fetchCloudData(); else renderCards(); }
     </script>
 </body>
 </html>
