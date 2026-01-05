@@ -196,6 +196,13 @@
                 <button onclick="saveApiUrl()" class="flex-1 bg-stone-700 text-white py-2 rounded text-sm font-bold hover:bg-stone-800">儲存並同步</button>
                 <button onclick="fetchCloudData()" class="px-4 bg-stone-200 text-stone-600 rounded text-sm font-bold hover:bg-stone-300" title="強制重新整理"><i class="fa-solid fa-sync"></i></button>
             </div>
+
+            <!-- Debug Button -->
+            <div class="mt-4 pt-4 border-t border-stone-100">
+                <button onclick="window.debugCloudData()" class="w-full text-stone-400 text-xs hover:text-stone-600 flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-bug"></i> 檢查資料欄位 (若同步有問題請點此)
+                </button>
+            </div>
         </div>
         
         <div class="mt-8 text-center pb-8">
@@ -237,7 +244,8 @@
                         <input type="number" id="input-qty" value="1" min="1" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
                     </div>
                 </div>
-                <div>
+                <!-- Expiry Date Container -->
+                <div id="modal-expiry-container">
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">有效期限 *</label>
                     <input type="date" id="input-expiry" required class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none text-stone-600">
                 </div>
@@ -353,7 +361,7 @@
             const apiUrl = localStorage.getItem('myInventoryApiUrl');
             if (!apiUrl) {
                 alert("請先在設定頁面設定 Google Web App URL！");
-                return false;
+                return null; // Return null on error
             }
 
             const overlay = document.getElementById('sync-overlay');
@@ -369,7 +377,8 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    return true;
+                    // **重要修正**：回傳整個 result 物件，以便取得後端產生的 ID
+                    return result; 
                 } else {
                     throw new Error(result.message || "Unknown error");
                 }
@@ -377,7 +386,7 @@
             } catch (error) {
                 console.error("雲端同步失敗:", error);
                 alert(`同步失敗：${error.message}\n請檢查網路或 App Script 是否已更新部署。`);
-                return false;
+                return null;
             } finally {
                 overlay.classList.add('hidden');
             }
@@ -411,10 +420,17 @@
                 const data = await response.json();
                 
                 if (Array.isArray(data)) {
-                    inventory = data.map((item, index) => ({
-                        ...item,
-                        id: String(item.id)
-                    }));
+                    inventory = data.map((item, index) => {
+                        // 強制轉小寫並去除空白，確保 status 判斷無誤
+                        let safeStatus = (item.status || 'in_stock').trim().toLowerCase();
+                        if (safeStatus === '') safeStatus = 'in_stock';
+                        
+                        return {
+                            ...item,
+                            id: String(item.id),
+                            status: safeStatus
+                        };
+                    });
                 } else {
                     inventory = []; 
                 }
@@ -425,6 +441,34 @@
             } finally {
                 loader.classList.add('hidden');
             }
+        }
+
+        // New Debug Function
+        async function debugCloudData() {
+             const apiUrl = localStorage.getItem('myInventoryApiUrl');
+             if (!apiUrl) return alert("未設定網址");
+             
+             try {
+                 const response = await fetch(apiUrl);
+                 const data = await response.json();
+                 if(data.length > 0) {
+                     const firstItem = data[0];
+                     let msg = "Google 回傳的第一筆資料欄位：\n\n";
+                     for (const key in firstItem) {
+                         msg += `${key}: ${firstItem[key]}\n`;
+                     }
+                     if (!firstItem.hasOwnProperty('status')) {
+                         msg += "\n⚠️ 警告：找不到 'status' 欄位！\n這代表 Google Apps Script 可能未正確部署新版本，或是 Sheet 的 K1 標題不是 'status'。";
+                     } else {
+                         msg += "\n✅ 狀態：欄位正常，包含 status。";
+                     }
+                     alert(msg);
+                 } else {
+                     alert("Google Sheet 目前是空的，無法檢查欄位。");
+                 }
+             } catch (e) {
+                 alert("連線錯誤：" + e.message);
+             }
         }
 
         // 4. UI 渲染
@@ -568,9 +612,13 @@
                     // Shopping Card Style
                     statusBadgeHtml = `<span class="bg-stone-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">待採買</span>`;
                     cardActionHtml = `
-                        <button onclick="window.confirmRestock('${itemId}')" class="bg-green-600 text-white text-xs px-3 py-2 rounded shadow hover:bg-green-700 flex items-center">
-                            <i class="fa-solid fa-check mr-1"></i> 已買入庫
-                        </button>
+                        <div class="flex gap-1 items-center w-full justify-end">
+                            <button onclick="window.editItem('${itemId}')" class="text-stone-400 hover:text-blue-600 p-2"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 p-2"><i class="fa-solid fa-trash-can"></i></button>
+                            <button onclick="window.confirmRestock('${itemId}')" class="bg-green-600 text-white text-xs px-3 py-2 rounded shadow hover:bg-green-700 flex items-center ml-1">
+                                <i class="fa-solid fa-check mr-1"></i> 入庫
+                            </button>
+                        </div>
                     `;
                 } else {
                     // Inventory Card Style
@@ -614,24 +662,22 @@
         window.decreaseQty = async function(id) {
             const item = inventory.find(i => i.id === id);
             if (!item) return;
+            
             if (parseInt(item.qty) > 1) {
-                // 一般減少
-                const newQty = parseInt(item.qty) - 1;
-                const updatedItem = { ...item, qty: newQty };
-                const success = await saveToCloud('update', updatedItem);
-                if (success) {
-                    // Update Local
-                    const index = inventory.findIndex(i => i.id === id);
-                    inventory[index] = updatedItem;
-                    renderCards();
-                }
+                // 防呆：即使數量大於 1，也要確認
+                if (!confirm(`確定要減少「${item.name}」的數量嗎？ (目前 ${item.qty} 個)`)) return;
+                
+                item.qty--;
+                await saveToCloud('update', item);
+                renderCards();
             } else {
                 // 剩 1 個時的邏輯：取消即是取消動作，不是刪除
                 if (confirm(`「${item.name}」只剩 1 個了！\n\n按「確定」：加入採買清單\n按「取消」：維持現狀`)) {
                     item.status = 'to_buy';
                     item.qty = 1; 
                     await saveToCloud('update', item);
-                    await fetchCloudData(); // Sync to be safe
+                    // 這裡可以選擇不重新 fetch，因為我們已經在本地修改了 status，直接 render 即可
+                    renderCards(); 
                 } else {
                     // Do nothing - User cancelled the action
                 }
@@ -670,10 +716,10 @@
                 };
                 
                 closeModal('restock-modal');
-                const success = await saveToCloud('update', updatedItem);
-                if(success) {
+                const result = await saveToCloud('update', updatedItem);
+                if(result) {
                     const index = inventory.findIndex(i => i.id === id);
-                    inventory[index] = updatedItem;
+                    inventory[index] = updatedItem; // 本地直接更新
                     alert(`${item.name} 已入庫！`);
                     switchTab(item.type); 
                 }
@@ -682,8 +728,8 @@
 
         window.deleteItem = async function(id) {
             if(!confirm("確定要刪除嗎？")) return;
-            const success = await saveToCloud('delete', { id: id });
-            if(success) {
+            const result = await saveToCloud('delete', { id: id });
+            if(result) {
                 inventory = inventory.filter(i => i.id !== id);
                 renderCards();
             }
@@ -692,6 +738,20 @@
         window.editItem = function(id) {
             const item = inventory.find(i => i.id === id);
             if (!item) return;
+            
+            // Check status to determine expiry field visibility
+            const isToBuy = item.status === 'to_buy';
+            const expiryContainer = document.getElementById('modal-expiry-container');
+            const expiryInput = document.getElementById('input-expiry');
+            
+            if (isToBuy) {
+                expiryContainer.classList.add('hidden');
+                expiryInput.required = false;
+            } else {
+                expiryContainer.classList.remove('hidden');
+                expiryInput.required = true;
+            }
+
             document.getElementById('edit-id').value = item.id;
             document.getElementById('input-status').value = item.status; 
             document.getElementById('input-type').value = item.type;
@@ -699,7 +759,9 @@
             document.getElementById('input-name').value = item.name;
             document.getElementById('input-category').value = item.category;
             document.getElementById('input-qty').value = item.qty;
-            document.getElementById('input-expiry').value = item.expiry.substring(0, 10);
+            if (item.expiry) {
+                document.getElementById('input-expiry').value = item.expiry.substring(0, 10);
+            }
             document.getElementById('input-image').value = item.image;
             document.getElementById('input-tags').value = item.tags;
             document.getElementById('input-notes').value = item.notes;
@@ -882,11 +944,28 @@
         function openAddModal() {
             document.getElementById('edit-id').value = "";
             document.getElementById('add-form').reset();
-            document.getElementById('modal-title').innerText = "新增物品";
-            document.getElementById('submit-btn-text').innerText = "加入庫存";
-            document.getElementById('input-type').value = (currentTab === 'shopping') ? 'food' : currentTab;
-            document.getElementById('input-status').value = 'in_stock';
-            document.getElementById('input-expiry').valueAsDate = new Date();
+            
+            const isShopping = currentTab === 'shopping';
+            
+            document.getElementById('modal-title').innerText = isShopping ? "新增待買物品" : "新增物品";
+            document.getElementById('submit-btn-text').innerText = isShopping ? "加入清單" : "加入庫存";
+            document.getElementById('input-type').value = isShopping ? 'food' : currentTab;
+            document.getElementById('input-status').value = isShopping ? 'to_buy' : 'in_stock';
+            
+            // Expiry Visibility Control
+            const expiryContainer = document.getElementById('modal-expiry-container');
+            const expiryInput = document.getElementById('input-expiry');
+            
+            if (isShopping) {
+                expiryContainer.classList.add('hidden');
+                expiryInput.required = false;
+                expiryInput.value = ""; 
+            } else {
+                expiryContainer.classList.remove('hidden');
+                expiryInput.required = true;
+                expiryInput.valueAsDate = new Date();
+            }
+            
             updateModalCategoryOptions(); renderModalQuickTags();
             const modal = document.getElementById('add-modal');
             modal.classList.remove('hidden');
@@ -934,24 +1013,33 @@
                 brand: ""
             };
 
-            let success = false;
+            let result = null;
             if(editId) {
+                // Update
                 const old = inventory.find(i => i.id === editId);
                 // 修正：成功更新後，立即更新本地 inventory 陣列，這樣畫面才會變
                 if(old) {
                     const updatedItem = { ...old, ...itemData };
-                    success = await saveToCloud('update', updatedItem);
-                    if (success) {
+                    result = await saveToCloud('update', updatedItem);
+                    if (result) {
                         const index = inventory.findIndex(i => i.id === editId);
-                        inventory[index] = updatedItem;
+                        inventory[index] = updatedItem; // 本地立即更新
                     }
                 }
             } else {
-                success = await saveToCloud('create', itemData);
-                if(success) await fetchCloudData();
+                // Create
+                result = await saveToCloud('create', itemData);
+                if(result) {
+                    // 重要修正：成功後，直接使用後端回傳的 ID 來建立本地物件，不要等 fetchCloudData
+                    const newItem = {
+                        ...itemData,
+                        id: String(result.id) // 使用後端產生的 ID
+                    };
+                    inventory.push(newItem); // 本地立即新增
+                }
             }
 
-            if(success) { renderCards(); closeModal('add-modal'); }
+            if(result) { renderCards(); closeModal('add-modal'); }
             btn.innerHTML = `<span id="submit-btn-text">${txt}</span>`; btn.disabled = false;
         });
 
