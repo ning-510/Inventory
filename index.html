@@ -330,6 +330,7 @@
 
         function updateAlertBanner() {
             let urgentCount = 0;
+            // 確保 inventory 有資料且 currentTab 不是 'shopping' (待買清單不計算過期)
             if (inventory.length > 0 && currentTab !== 'shopping') {
                 inventory.filter(item => item.type === currentTab && item.status !== 'to_buy').forEach(item => {
                     if (getDaysRemaining(item.expiry) <= 60) urgentCount++;
@@ -385,13 +386,28 @@
         async function fetchCloudData() {
             const apiUrl = localStorage.getItem('myInventoryApiUrl');
             if (!apiUrl) return; 
+            
+            // Basic validation
+            if (!apiUrl.includes('script.google.com') || !apiUrl.endsWith('/exec')) {
+                alert("網址格式可能錯誤！請確認網址是以 /exec 結尾的 Web App URL。");
+            }
 
             const loader = document.getElementById('loading-indicator');
             loader.classList.remove('hidden');
 
             try {
                 const response = await fetch(apiUrl);
-                if (!response.ok) throw new Error("網路回應不正確");
+                if (!response.ok) {
+                    throw new Error(`伺服器回應錯誤: ${response.status}`);
+                }
+                
+                // Check content type
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") === -1) {
+                    // Likely HTML returned (login page or error page)
+                    throw new Error("回傳格式錯誤 (可能是權限不足，請確認部署設定為「任何人」)");
+                }
+
                 const data = await response.json();
                 
                 if (Array.isArray(data)) {
@@ -405,7 +421,7 @@
                 renderCards();
             } catch (error) {
                 console.error("讀取失敗:", error);
-                alert("無法從 Google 讀取資料。");
+                alert(`無法從 Google 讀取資料：\n${error.message}`);
             } finally {
                 loader.classList.add('hidden');
             }
