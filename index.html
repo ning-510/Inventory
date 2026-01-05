@@ -330,7 +330,6 @@
 
         function updateAlertBanner() {
             let urgentCount = 0;
-            // 確保 inventory 有資料且 currentTab 不是 'shopping' (待買清單不計算過期)
             if (inventory.length > 0 && currentTab !== 'shopping') {
                 inventory.filter(item => item.type === currentTab && item.status !== 'to_buy').forEach(item => {
                     if (getDaysRemaining(item.expiry) <= 60) urgentCount++;
@@ -597,19 +596,25 @@
             const item = inventory.find(i => i.id === id);
             if (!item) return;
             if (parseInt(item.qty) > 1) {
-                item.qty--;
-                await saveToCloud('update', item);
-                renderCards();
+                // 一般減少
+                const newQty = parseInt(item.qty) - 1;
+                const updatedItem = { ...item, qty: newQty };
+                const success = await saveToCloud('update', updatedItem);
+                if (success) {
+                    // Update Local
+                    const index = inventory.findIndex(i => i.id === id);
+                    inventory[index] = updatedItem;
+                    renderCards();
+                }
             } else {
-                if (confirm(`「${item.name}」已用完！要加入採買清單嗎？\n(按「取消」則直接刪除)`)) {
+                // 剩 1 個時的邏輯：取消即是取消動作，不是刪除
+                if (confirm(`「${item.name}」只剩 1 個了！\n\n按「確定」：加入採買清單\n按「取消」：維持現狀`)) {
                     item.status = 'to_buy';
                     item.qty = 1; 
                     await saveToCloud('update', item);
-                    await fetchCloudData(); 
+                    await fetchCloudData(); // Sync to be safe
                 } else {
-                    await saveToCloud('delete', { id: id });
-                    inventory = inventory.filter(i => i.id !== id);
-                    renderCards();
+                    // Do nothing - User cancelled the action
                 }
             }
         }
@@ -638,13 +643,18 @@
             
             const item = inventory.find(i => i.id === id);
             if (item) {
-                item.status = 'in_stock';
-                item.expiry = newExpiry;
-                item.qty = parseInt(newQty);
+                const updatedItem = {
+                    ...item,
+                    status: 'in_stock',
+                    expiry: newExpiry,
+                    qty: parseInt(newQty)
+                };
                 
                 closeModal('restock-modal');
-                const success = await saveToCloud('update', item);
+                const success = await saveToCloud('update', updatedItem);
                 if(success) {
+                    const index = inventory.findIndex(i => i.id === id);
+                    inventory[index] = updatedItem;
                     alert(`${item.name} 已入庫！`);
                     switchTab(item.type); 
                 }
@@ -653,7 +663,8 @@
 
         window.deleteItem = async function(id) {
             if(!confirm("確定要刪除嗎？")) return;
-            if(await saveToCloud('delete', { id: id })) {
+            const success = await saveToCloud('delete', { id: id });
+            if(success) {
                 inventory = inventory.filter(i => i.id !== id);
                 renderCards();
             }
@@ -907,7 +918,15 @@
             let success = false;
             if(editId) {
                 const old = inventory.find(i => i.id === editId);
-                if(old) success = await saveToCloud('update', { ...old, ...itemData });
+                // 修正：成功更新後，立即更新本地 inventory 陣列，這樣畫面才會變
+                if(old) {
+                    const updatedItem = { ...old, ...itemData };
+                    success = await saveToCloud('update', updatedItem);
+                    if (success) {
+                        const index = inventory.findIndex(i => i.id === editId);
+                        inventory[index] = updatedItem;
+                    }
+                }
             } else {
                 success = await saveToCloud('create', itemData);
                 if(success) await fetchCloudData();
