@@ -328,6 +328,26 @@
             return { text: `剩 ${days} 天`, class: "bg-green-100 text-green-800 border border-green-200", icon: "fa-check" };
         }
 
+        function updateAlertBanner() {
+            let urgentCount = 0;
+            // 確保 inventory 有資料且 currentTab 不是 'shopping' (待買清單不計算過期)
+            if (inventory.length > 0 && currentTab !== 'shopping') {
+                inventory.filter(item => item.type === currentTab && item.status !== 'to_buy').forEach(item => {
+                    if (getDaysRemaining(item.expiry) <= 60) urgentCount++;
+                });
+            }
+
+            const banner = document.getElementById('alert-banner');
+            const tabNames = { food: '飲食', living: '日用', beauty: '美妝', shopping: '待買' };
+            
+            if (urgentCount > 0) {
+                banner.classList.remove('hidden');
+                document.getElementById('alert-text').innerHTML = `您的 <b>${tabNames[currentTab] || ''}</b> 庫存中，有 <span class="text-xl font-bold">${urgentCount}</span> 項物品即將在 2 個月內過期！`;
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
         // --- 核心：雲端 CRUD 功能 ---
         async function saveToCloud(action, data) {
             const apiUrl = localStorage.getItem('myInventoryApiUrl');
@@ -507,42 +527,28 @@
 
                 // 2. Search
                 const search = searchTerm.toLowerCase();
-                if (!item.name.toLowerCase().includes(search) && !item.brand.toLowerCase().includes(search)) return false;
+                const name = String(item.name || '').toLowerCase();
+                const brand = String(item.brand || '').toLowerCase();
+                if (!name.includes(search) && !brand.includes(search)) return false;
                 
                 // 3. Filters (Skip for shopping)
                 if (currentTab !== 'shopping') {
                     if (currentFilter !== 'all' && item.category !== currentFilter) return false;
-                    if (currentTagFilter && !(item.tags || '').toLowerCase().includes(currentTagFilter.toLowerCase())) return false;
+                    const tags = String(item.tags || '').toLowerCase();
+                    if (currentTagFilter && !tags.includes(currentTagFilter.toLowerCase())) return false;
                 }
                 return true;
             });
 
             // Sort: Shopping list by name, others by expiry
             if (currentTab === 'shopping') {
-                filteredData.sort((a, b) => a.name.localeCompare(b.name));
+                filteredData.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
             } else {
                 filteredData.sort((a, b) => getDaysRemaining(a.expiry) - getDaysRemaining(b.expiry));
             }
             
-            // --- INLINED ALERT BANNER UPDATE ---
-            // Directly checking here to avoid scoping issues
-            let urgentCount = 0;
-            if (inventory.length > 0 && currentTab !== 'shopping') {
-                inventory.filter(item => item.type === currentTab && item.status !== 'to_buy').forEach(item => {
-                    if (getDaysRemaining(item.expiry) <= 60) urgentCount++;
-                });
-            }
-
-            const banner = document.getElementById('alert-banner');
-            const tabNames = { food: '飲食', living: '日用', beauty: '美妝', shopping: '待買' };
-            
-            if (urgentCount > 0) {
-                banner.classList.remove('hidden');
-                document.getElementById('alert-text').innerHTML = `您的 <b>${tabNames[currentTab] || ''}</b> 庫存中，有 <span class="text-xl font-bold">${urgentCount}</span> 項物品即將在 2 個月內過期！`;
-            } else {
-                banner.classList.add('hidden');
-            }
-            // -----------------------------------
+            // Render UI
+            updateAlertBanner(); // Call helper after sorting logic
 
             if (filteredData.length === 0) {
                 container.innerHTML = `<div class="text-center py-10 text-stone-400"><i class="fa-solid fa-box-open text-4xl mb-3 opacity-30"></i><p>這裡空空的...</p></div>`;
@@ -552,7 +558,7 @@
             filteredData.forEach(item => {
                 const itemId = String(item.id); 
                 const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : 'https://placehold.co/100x100?text=No+Img';
-                let tagsHtml = (item.tags || '').split(/[ ,，]+/).map(t => t ? `<span class="text-[10px] text-stone-400 px-1 py-0.5 bg-stone-100 rounded mr-1">#${t}</span>` : '').join('');
+                let tagsHtml = String(item.tags || '').split(/[ ,，]+/).map(t => t ? `<span class="text-[10px] text-stone-400 px-1 py-0.5 bg-stone-100 rounded mr-1">#${t}</span>` : '').join('');
                 
                 // --- Card Content Decision ---
                 let cardActionHtml = '';
