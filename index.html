@@ -249,6 +249,7 @@
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">有效期限 *</label>
                     <input type="date" id="input-expiry" required class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none text-stone-600">
                 </div>
+                <!-- Image Field Removed -->
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">標籤 (Tags)</label>
                     <input type="text" id="input-tags" placeholder="需微波, 辣味..." class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
@@ -401,15 +402,14 @@
             loader.classList.remove('hidden');
 
             try {
-                const response = await fetch(apiUrl);
+                // Add timestamp to prevent caching
+                const response = await fetch(`${apiUrl}?t=${new Date().getTime()}`);
                 if (!response.ok) {
                     throw new Error(`伺服器回應錯誤: ${response.status}`);
                 }
                 
-                // Check content type
                 const contentType = response.headers.get("content-type");
                 if (contentType && contentType.indexOf("application/json") === -1) {
-                    // Likely HTML returned (login page or error page)
                     throw new Error("回傳格式錯誤 (可能是權限不足，請確認部署設定為「任何人」)");
                 }
 
@@ -417,7 +417,6 @@
                 
                 if (Array.isArray(data)) {
                     inventory = data.map((item, index) => {
-                        // 強制轉小寫並去除空白，確保 status 判斷無誤
                         let safeStatus = (item.status || 'in_stock').trim().toLowerCase();
                         if (safeStatus === '') safeStatus = 'in_stock';
                         
@@ -445,7 +444,7 @@
              if (!apiUrl) return alert("未設定網址");
              
              try {
-                 const response = await fetch(apiUrl);
+                 const response = await fetch(`${apiUrl}?t=${new Date().getTime()}`);
                  const data = await response.json();
                  if(data.length > 0) {
                      const firstItem = data[0];
@@ -597,7 +596,9 @@
 
             filteredData.forEach(item => {
                 const itemId = String(item.id); 
-                const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : 'https://placehold.co/100x100?text=No+Img';
+                const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : ''; // 預設為空，除非有有效網址
+                
+                // 標籤
                 let tagsHtml = String(item.tags || '').split(/[ ,，]+/).map(t => t ? `<span class="text-[10px] text-stone-400 px-1 py-0.5 bg-stone-100 rounded mr-1">#${t}</span>` : '').join('');
                 
                 // --- Card Content Decision ---
@@ -622,7 +623,7 @@
                     const status = getStatusInfo(days);
                     statusBadgeHtml = `<span class="${status.class} text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"><i class="fa-solid ${status.icon} mr-1"></i>${status.text}</span>`;
                     cardActionHtml = `
-                        <div class="text-[10px] text-stone-400 mr-auto">效期: ${item.expiry.substring(0, 10)}</div>
+                        <div class="text-[10px] text-stone-400 mr-auto">效期: ${item.expiry ? item.expiry.substring(0, 10) : '未設定'}</div>
                         <button onclick="window.decreaseQty('${itemId}')" class="text-stone-400 hover:text-orange-600 p-2" title="-1"><i class="fa-solid fa-minus"></i></button>
                         <button onclick="window.editItem('${itemId}')" class="text-stone-400 hover:text-blue-600 p-2"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 p-2"><i class="fa-solid fa-trash-can"></i></button>
@@ -630,10 +631,11 @@
                 }
 
                 // --- Layout without Image ---
+                // Removed image section completely
                 htmlContent += `
                 <div class="bg-white rounded-xl overflow-hidden card-shadow p-4 relative border border-stone-100 mb-4">
                     <div class="flex justify-between items-start mb-1">
-                        <div class="flex flex-col">
+                        <div class="flex flex-col flex-1 mr-2">
                             <span class="text-[10px] font-bold text-stone-400 tracking-wide uppercase truncate pr-2">${item.brand || ''}</span>
                             <div class="flex items-center gap-2">
                                 <h3 class="font-bold text-stone-800 text-base leading-tight line-clamp-1">${item.name}</h3>
@@ -676,8 +678,8 @@
                     item.status = 'to_buy';
                     item.qty = 1; 
                     await saveToCloud('update', item);
-                    // 這裡可以選擇不重新 fetch，因為我們已經在本地修改了 status，直接 render 即可
-                    renderCards(); 
+                    // 切換到購物清單讓用戶看到變化
+                    switchTab('shopping');
                 } else {
                     // Do nothing - User cancelled the action
                 }
@@ -720,7 +722,7 @@
                 if(result) {
                     const index = inventory.findIndex(i => i.id === id);
                     inventory[index] = updatedItem; // 本地直接更新
-                    alert(`${item.name} 已入庫！`);
+                    alert(`✅ ${item.name} 已入庫！`);
                     switchTab(item.type); 
                 }
             }
@@ -762,8 +764,7 @@
             if (item.expiry) {
                 document.getElementById('input-expiry').value = item.expiry.substring(0, 10);
             }
-            // Remove image population
-            // document.getElementById('input-image').value = item.image;
+            // Removed image input
             document.getElementById('input-tags').value = item.tags;
             document.getElementById('input-notes').value = item.notes;
             document.getElementById('modal-title').innerText = "編輯物品";
@@ -1014,33 +1015,46 @@
                 brand: ""
             };
 
-            let result = null;
+            let success = false;
             if(editId) {
-                // Update
                 const old = inventory.find(i => i.id === editId);
                 // 修正：成功更新後，立即更新本地 inventory 陣列，這樣畫面才會變
                 if(old) {
                     const updatedItem = { ...old, ...itemData };
-                    result = await saveToCloud('update', updatedItem);
-                    if (result) {
+                    success = await saveToCloud('update', updatedItem);
+                    if (success) {
                         const index = inventory.findIndex(i => i.id === editId);
                         inventory[index] = updatedItem; // 本地立即更新
+                        alert("✅ 資料已更新！"); // 視覺回饋
+                        
+                        // 自動切換到正確的分頁
+                        if(updatedItem.status === 'to_buy') {
+                            switchTab('shopping');
+                        } else {
+                            switchTab(updatedItem.type);
+                        }
                     }
                 }
             } else {
-                // Create
-                result = await saveToCloud('create', itemData);
-                if(result) {
+                success = await saveToCloud('create', itemData);
+                if(success) {
                     // 重要修正：成功後，直接使用後端回傳的 ID 來建立本地物件，不要等 fetchCloudData
                     const newItem = {
                         ...itemData,
-                        id: String(result.id) // 使用後端產生的 ID
+                        id: String(success.id) // 使用後端產生的 ID
                     };
                     inventory.push(newItem); // 本地立即新增
+                    alert("✅ 新增成功！");
+                    
+                    if(newItem.status === 'to_buy') {
+                        switchTab('shopping');
+                    } else {
+                        switchTab(newItem.type);
+                    }
                 }
             }
 
-            if(result) { renderCards(); closeModal('add-modal'); }
+            if(success) { renderCards(); closeModal('add-modal'); }
             btn.innerHTML = `<span id="submit-btn-text">${txt}</span>`; btn.disabled = false;
         });
 
