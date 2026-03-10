@@ -4,47 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>居家物資管理系統</title>
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 引入 html5-qrcode 條碼掃描庫 -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <style>
-        /* 防止手機左右滑動 */
-        body { 
-            font-family: 'Noto Sans TC', sans-serif; 
-            background-color: #fdfbf7; 
-            color: #4a4a4a; 
-            overflow-x: hidden; 
-            width: 100%;
-        }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #fdfbf7; color: #4a4a4a; overflow-x: hidden; width: 100%; }
         .tab-active { border-bottom: 3px solid #b91c1c; color: #b91c1c; font-weight: 700; }
         .tab-inactive { color: #9ca3af; border-bottom: 3px solid transparent; }
         .tab-inactive:hover { color: #4b5563; }
         .filter-chip.active { background-color: #4a4a4a; color: white; }
-        /* Tag Filter Styles */
         .tag-filter.active { background-color: #b91c1c; color: white; border-color: #b91c1c; }
-        /* Settings Tag Styles */
         .settings-tag-chip { transition: all 0.2s; }
         .settings-tag-chip.editing { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; transform: scale(1.05); }
-        
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); transition: transform 0.2s; }
         .view-section { transition: opacity 0.3s ease-in-out; }
         .hidden-view { display: none; opacity: 0; }
-        /* Loading Spinner */
         .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #b91c1c; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* 調整 Scanner 樣式 */
+        #reader video { object-fit: cover; border-radius: 0.5rem; }
     </style>
 </head>
 <body class="min-h-screen pb-24 relative w-full">
 
-    <!-- Header -->
     <header class="bg-white sticky top-0 z-40 shadow-sm w-full">
         <div class="max-w-md mx-auto px-4 pt-4 pb-0 w-full">
             <div class="flex justify-between items-center mb-3 relative">
@@ -59,7 +49,7 @@
             
             <div id="main-header-content">
                 <div class="relative mb-3">
-                    <input type="text" id="searchInput" placeholder="搜尋物品名稱..." 
+                    <input type="text" id="searchInput" placeholder="搜尋物品名稱..." oninput="searchTerm = this.value; renderCards();"
                         class="w-full bg-stone-100 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-stone-300 outline-none transition">
                     <i class="fa-solid fa-search absolute left-4 top-2.5 text-stone-400"></i>
                 </div>
@@ -74,7 +64,6 @@
                     <button onclick="switchTab('beauty')" id="tab-beauty" class="tab-inactive py-2 flex-1 transition-all">
                         <span class="block text-lg mb-0.5">💄</span><span class="text-xs font-bold">美妝</span>
                     </button>
-                    <!-- 新增採買 Tab -->
                     <button onclick="switchTab('shopping')" id="tab-shopping" class="tab-inactive py-2 flex-1 transition-all border-l border-stone-100 bg-stone-50">
                         <span class="block text-lg mb-0.5">🛒</span><span class="text-xs font-bold text-stone-600">待買</span>
                     </button>
@@ -83,19 +72,13 @@
         </div>
     </header>
 
-    <!-- Main View -->
     <div id="view-main" class="view-section w-full">
-        <!-- 載入中提示 -->
         <div id="loading-indicator" class="hidden text-center py-2 bg-stone-50 text-xs text-stone-500">
-            <div class="flex justify-center items-center gap-2">
-                <div class="spinner"></div> 正在從 Google 讀取資料...
-            </div>
+            <div class="flex justify-center items-center gap-2"><div class="spinner"></div> 正在從 Google 讀取資料...</div>
         </div>
-        <!-- 寫入中提示 (Overlay) -->
         <div id="sync-overlay" class="fixed inset-0 bg-black/30 z-[70] hidden flex items-center justify-center backdrop-blur-sm">
              <div class="bg-white p-4 rounded-xl shadow-lg flex items-center gap-3">
-                <div class="spinner"></div>
-                <span class="text-sm font-bold text-stone-600">正在寫入雲端...</span>
+                <div class="spinner"></div><span class="text-sm font-bold text-stone-600">正在寫入雲端...</span>
              </div>
         </div>
 
@@ -105,14 +88,8 @@
         </div>
 
         <main class="max-w-md mx-auto px-4 mt-4 w-full">
-            <!-- 分類篩選 (Category Filters) -->
             <div id="sub-filters" class="flex overflow-x-auto gap-2 pb-2 mb-2 hide-scrollbar w-full"></div>
-            
-            <!-- 標籤篩選 (Tag Filters) -->
-            <div id="tag-filters-container" class="flex overflow-x-auto gap-2 pb-2 mb-4 hide-scrollbar w-full border-t border-stone-100 pt-2">
-                <!-- JS Inject -->
-            </div>
-
+            <div id="tag-filters-container" class="flex overflow-x-auto gap-2 pb-2 mb-4 hide-scrollbar w-full border-t border-stone-100 pt-2"></div>
             <div id="item-container" class="grid grid-cols-1 gap-4 w-full"></div>
         </main>
 
@@ -124,9 +101,7 @@
     <!-- Settings View -->
     <div id="view-settings" class="view-section hidden-view max-w-md mx-auto px-4 mt-6 pb-20 w-full">
         <h2 class="text-lg font-bold text-stone-700 mb-4 px-2 border-l-4 border-red-700">分類管理</h2>
-        
         <div class="space-y-6">
-            <!-- Food Settings -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
                 <h3 class="font-bold text-stone-600 mb-3">🍱 飲食類別 (Food)</h3>
                 <div class="flex flex-wrap gap-2 mb-3" id="settings-tags-food"></div>
@@ -135,7 +110,6 @@
                     <button onclick="window.addCategory('food')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700 whitespace-nowrap">新增</button>
                 </div>
             </div>
-            <!-- Living Settings -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
                 <h3 class="font-bold text-stone-600 mb-3">🧻 日用類別 (Living)</h3>
                 <div class="flex flex-wrap gap-2 mb-3" id="settings-tags-living"></div>
@@ -144,7 +118,6 @@
                     <button onclick="window.addCategory('living')" class="bg-stone-600 text-white px-3 py-1 rounded text-sm hover:bg-stone-700 whitespace-nowrap">新增</button>
                 </div>
             </div>
-            <!-- Beauty Settings -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
                 <h3 class="font-bold text-stone-600 mb-3">💄 美妝類別 (Beauty)</h3>
                 <div class="flex flex-wrap gap-2 mb-3" id="settings-tags-beauty"></div>
@@ -154,60 +127,36 @@
                 </div>
             </div>
         </div>
-
-        <!-- Common Tags Settings -->
         <h2 class="text-lg font-bold text-stone-700 mb-4 mt-8 px-2 border-l-4 border-yellow-500">常用標籤管理</h2>
         <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
-            <p class="text-xs text-stone-400 mb-3">點擊上方標籤可進行編輯或刪除。</p>
-            
-            <!-- Tags List -->
             <div class="flex flex-wrap gap-2 mb-4" id="settings-common-tags"></div>
-            
-            <!-- Input Area -->
             <div class="flex flex-col gap-2 bg-stone-50 p-3 rounded-lg border border-stone-200">
                 <label class="text-xs font-bold text-stone-500 uppercase" id="tag-input-label">新增標籤</label>
                 <div class="flex gap-2">
                     <input type="text" id="new-common-tag" placeholder="輸入標籤名稱..." class="flex-1 bg-white border border-stone-300 rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 min-w-0">
-                    
-                    <!-- Add/Update Button -->
-                    <button id="btn-save-tag" onclick="window.handleSaveTag()" class="bg-stone-600 text-white px-4 py-2 rounded text-sm hover:bg-stone-700 font-medium whitespace-nowrap shadow-sm">
-                        新增
-                    </button>
+                    <button id="btn-save-tag" onclick="window.handleSaveTag()" class="bg-stone-600 text-white px-4 py-2 rounded text-sm hover:bg-stone-700 font-medium whitespace-nowrap shadow-sm">新增</button>
                 </div>
-                
-                <!-- Edit Actions (Hidden by default) -->
                 <div id="edit-tag-actions" class="hidden flex gap-2 justify-end mt-1">
-                    <button onclick="window.handleDeleteTag()" class="text-red-500 hover:text-red-700 text-xs px-2 py-1 font-bold flex items-center">
-                        <i class="fa-solid fa-trash-can mr-1"></i> 刪除此標籤
-                    </button>
-                    <button onclick="window.cancelEditCommonTag()" class="text-stone-400 hover:text-stone-600 text-xs px-2 py-1 font-bold border border-stone-300 rounded bg-white">
-                        取消
-                    </button>
+                    <button onclick="window.handleDeleteTag()" class="text-red-500 hover:text-red-700 text-xs px-2 py-1 font-bold flex items-center"><i class="fa-solid fa-trash-can mr-1"></i> 刪除此標籤</button>
+                    <button onclick="window.cancelEditCommonTag()" class="text-stone-400 hover:text-stone-600 text-xs px-2 py-1 font-bold border border-stone-300 rounded bg-white">取消</button>
                 </div>
             </div>
         </div>
-
         <h2 class="text-lg font-bold text-stone-700 mb-4 mt-8 px-2 border-l-4 border-stone-500">系統連結</h2>
         <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
             <label class="block text-xs font-bold text-stone-500 mb-2 uppercase">Google Web App URL</label>
             <input type="text" id="settings-api-url" placeholder="https://script.google.com/..." class="w-full bg-stone-50 border border-stone-200 rounded px-3 py-2 text-sm outline-none focus:border-red-300 mb-2">
-            <p class="text-xs text-stone-400 mb-3">貼上 Google Apps Script 網址以啟用同步。</p>
             <div class="flex gap-2">
                 <button onclick="saveApiUrl()" class="flex-1 bg-stone-700 text-white py-2 rounded text-sm font-bold hover:bg-stone-800">儲存並同步</button>
                 <button onclick="fetchCloudData()" class="px-4 bg-stone-200 text-stone-600 rounded text-sm font-bold hover:bg-stone-300" title="強制重新整理"><i class="fa-solid fa-sync"></i></button>
             </div>
-
-            <!-- Debug Button -->
             <div class="mt-4 pt-4 border-t border-stone-100">
                 <button onclick="window.debugCloudData()" class="w-full text-stone-400 text-xs hover:text-stone-600 flex items-center justify-center gap-1">
-                    <i class="fa-solid fa-bug"></i> 檢查資料欄位 (若同步有問題請點此)
+                    <i class="fa-solid fa-bug"></i> 檢查資料欄位
                 </button>
             </div>
         </div>
-        
-        <div class="mt-8 text-center pb-8">
-             <button onclick="resetToDefaults()" class="text-red-400 text-xs underline hover:text-red-600">重置所有設定</button>
-        </div>
+        <div class="mt-8 text-center pb-8"><button onclick="resetToDefaults()" class="text-red-400 text-xs underline hover:text-red-600">重置所有設定</button></div>
     </div>
 
     <!-- Modal: 新增/編輯 -->
@@ -219,44 +168,53 @@
             </div>
             <form id="add-form" class="p-6 space-y-4 overflow-y-auto flex-1">
                 <input type="hidden" id="edit-id" value="">
-                <!-- 預設狀態為庫存 -->
                 <input type="hidden" id="input-status" value="in_stock">
                 
+                <!-- 新增：條碼輸入與掃描按鈕 -->
                 <div>
-                    <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">類型</label>
-                    <select id="input-type" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none" onchange="updateModalCategoryOptions()">
-                        <option value="food">飲食 (Food)</option>
-                        <option value="living">生活 (Living)</option>
-                        <option value="beauty">美妝 (Beauty)</option>
-                    </select>
+                    <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">條碼 (記憶鑰匙)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="input-barcode" placeholder="點擊右側相機掃描..." class="flex-1 bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-stone-400 outline-none">
+                        <button type="button" onclick="startScanner()" class="bg-stone-700 text-white px-4 py-2 rounded-lg hover:bg-stone-800 transition flex items-center justify-center shadow-sm">
+                            <i class="fa-solid fa-barcode mr-1"></i> 掃描
+                        </button>
+                    </div>
                 </div>
+
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">名稱 *</label>
-                    <input type="text" id="input-name" required placeholder="例如：銀座咖哩" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
+                    <input type="text" id="input-name" required placeholder="例如：統一麵肉燥風味" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">類型</label>
+                        <select id="input-type" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none" onchange="updateModalCategoryOptions()">
+                            <option value="food">飲食 (Food)</option>
+                            <option value="living">生活 (Living)</option>
+                            <option value="beauty">美妝 (Beauty)</option>
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">分類</label>
                         <select id="input-category" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none"></select>
                     </div>
-                    <div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div id="modal-expiry-container" class="col-span-1">
+                        <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">有效期限 *</label>
+                        <input type="date" id="input-expiry" required class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none text-stone-600">
+                    </div>
+                    <div class="col-span-1">
                         <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">數量</label>
                         <input type="number" id="input-qty" value="1" min="1" class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
                     </div>
                 </div>
-                <!-- Expiry Date Container -->
-                <div id="modal-expiry-container">
-                    <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">有效期限 *</label>
-                    <input type="date" id="input-expiry" required class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none text-stone-600">
-                </div>
-                <!-- Image Field Removed -->
+                
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">標籤 (Tags)</label>
                     <input type="text" id="input-tags" placeholder="需微波, 辣味..." class="w-full bg-stone-50 border border-stone-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-200 outline-none">
-                    <!-- 快速選擇常用標籤 -->
-                    <div id="modal-quick-tags" class="flex flex-wrap gap-2 mt-2">
-                        <!-- JS Inject -->
-                    </div>
+                    <div id="modal-quick-tags" class="flex flex-wrap gap-2 mt-2"></div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-stone-500 mb-1 uppercase">備註 (Notes)</label>
@@ -269,12 +227,24 @@
         </div>
     </div>
 
+    <!-- Modal: 條碼掃描畫面 -->
+    <div id="scanner-modal" class="fixed inset-0 bg-black/90 z-[100] hidden flex flex-col items-center justify-center p-4 w-full h-full backdrop-blur-sm">
+        <div class="w-full max-w-sm bg-white rounded-2xl overflow-hidden relative shadow-2xl">
+            <div class="bg-stone-100 px-4 py-3 flex justify-between items-center z-10 relative border-b border-stone-200">
+                <h3 class="font-bold text-stone-700">對準條碼掃描</h3>
+                <button type="button" onclick="stopScanner()" class="text-stone-400 hover:text-red-600 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <!-- 相機預覽區域 -->
+            <div id="reader" class="w-full bg-black min-h-[250px]"></div>
+        </div>
+        <p class="text-white text-sm mt-4 font-medium tracking-wide"><i class="fa-solid fa-expand mr-2"></i>請將條碼置中於方框內</p>
+    </div>
+
     <!-- Modal: 快速補貨 (Restock) -->
     <div id="restock-modal" class="fixed inset-0 bg-black/60 z-[80] hidden flex items-center justify-center backdrop-blur-sm p-4">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 transform transition-all scale-95 opacity-0" id="restock-content">
             <h3 class="text-xl font-bold text-stone-800 mb-2">📦 補貨入庫</h3>
             <p id="restock-item-name" class="text-stone-500 text-sm mb-4">商品名稱</p>
-            
             <form id="restock-form" class="space-y-4">
                 <input type="hidden" id="restock-id">
                 <div>
@@ -306,18 +276,72 @@
         let commonTags = JSON.parse(localStorage.getItem('myInventoryCommonTags')) || defaultCommonTags;
 
         let inventory = [];
-
         let currentTab = 'food';
-        let currentFilter = 'all'; // Category filter
-        let currentTagFilter = null; // Tag filter
+        let currentFilter = 'all'; 
+        let currentTagFilter = null; 
         let searchTerm = '';
         let isSettingsOpen = false;
-        
-        // Tag Editing State
         let editingTagOriginalValue = null;
 
-        // --- Helper Functions (Pure) ---
+        // ===== 條碼掃描功能 (Html5Qrcode) =====
+        let html5QrCode = null;
 
+        function startScanner() {
+            document.getElementById('scanner-modal').classList.remove('hidden');
+            
+            // 實例化掃描器
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 150 }, aspectRatio: 1.333334 };
+            
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                alert("無法啟動相機，請確認瀏覽器已給予相機權限！");
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    document.getElementById('scanner-modal').classList.add('hidden');
+                }).catch(err => console.error(err));
+            } else {
+                document.getElementById('scanner-modal').classList.add('hidden');
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // 掃描成功，關閉相機
+            stopScanner();
+            
+            // 填入條碼欄位
+            document.getElementById('input-barcode').value = decodedText;
+            
+            // 觸發「記憶鑰匙」功能：尋找過往紀錄
+            autoFillFromMemory(decodedText);
+        }
+        
+        function autoFillFromMemory(barcode) {
+            // 從庫存中反向尋找 (尋找最新建立的相同條碼紀錄)
+            const pastItem = [...inventory].reverse().find(item => item.barcode === barcode);
+            
+            if (pastItem) {
+                document.getElementById('input-name').value = pastItem.name;
+                document.getElementById('input-type').value = pastItem.type;
+                updateModalCategoryOptions(); // 根據 type 更新次分類下拉選單
+                document.getElementById('input-category').value = pastItem.category;
+                document.getElementById('input-tags').value = pastItem.tags || "";
+                
+                // 視覺與聽覺回饋 (如果手機未靜音)
+                alert(`✨ 找到過往紀錄！已自動為您帶入「${pastItem.name}」的分類與標籤。\n請確認「有效期限」與「數量」後即可送出。`);
+            } else {
+                alert(`📦 這是新商品！請為它輸入名稱與分類，系統會自動記住這個條碼喔！`);
+            }
+        }
+        // ===== 條碼掃描功能結束 =====
+
+        // --- Helper Functions ---
         function getDaysRemaining(dateString) {
             if (!dateString) return 999;
             const today = new Date(); today.setHours(0,0,0,0);
@@ -335,16 +359,13 @@
 
         function updateAlertBanner() {
             let urgentCount = 0;
-            // 確保 inventory 有資料且 currentTab 不是 'shopping' (待買清單不計算過期)
             if (inventory.length > 0 && currentTab !== 'shopping') {
                 inventory.filter(item => item.type === currentTab && item.status !== 'to_buy').forEach(item => {
                     if (getDaysRemaining(item.expiry) <= 60) urgentCount++;
                 });
             }
-
             const banner = document.getElementById('alert-banner');
             const tabNames = { food: '飲食', living: '日用', beauty: '美妝', shopping: '待買' };
-            
             if (urgentCount > 0) {
                 banner.classList.remove('hidden');
                 document.getElementById('alert-text').innerHTML = `您的 <b>${tabNames[currentTab] || ''}</b> 庫存中，有 <span class="text-xl font-bold">${urgentCount}</span> 項物品即將在 2 個月內過期！`;
@@ -356,89 +377,27 @@
         // --- 核心：雲端 CRUD 功能 ---
         async function saveToCloud(action, data) {
             const apiUrl = localStorage.getItem('myInventoryApiUrl');
-            if (!apiUrl) {
-                alert("請先在設定頁面設定 Google Web App URL！");
-                return null; // Return null on error
-            }
-
-            const overlay = document.getElementById('sync-overlay');
-            overlay.classList.remove('hidden');
-
+            if (!apiUrl) { alert("請先在設定頁面設定 Google Web App URL！"); return null; }
+            document.getElementById('sync-overlay').classList.remove('hidden');
             try {
-                const payload = { action: action, ...data };
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, ...data }) });
                 const result = await response.json();
-                
-                if (result.status === 'success') {
-                    // **重要修正**：回傳整個 result 物件，以便取得後端產生的 ID
-                    return result; 
-                } else {
-                    throw new Error(result.message || "Unknown error");
-                }
-
-            } catch (error) {
-                console.error("雲端同步失敗:", error);
-                alert(`同步失敗：${error.message}\n請檢查網路或 App Script 是否已更新部署。`);
-                return null;
-            } finally {
-                overlay.classList.add('hidden');
-            }
+                if (result.status === 'success') return result; else throw new Error(result.message);
+            } catch (error) { alert(`同步失敗：${error.message}`); return null; } finally { document.getElementById('sync-overlay').classList.add('hidden'); }
         }
 
         async function fetchCloudData() {
             const apiUrl = localStorage.getItem('myInventoryApiUrl');
             if (!apiUrl) return; 
-            
-            // Basic validation
-            if (!apiUrl.includes('script.google.com') || !apiUrl.endsWith('/exec')) {
-                alert("網址格式可能錯誤！請確認網址是以 /exec 結尾的 Web App URL。");
-            }
-
-            const loader = document.getElementById('loading-indicator');
-            loader.classList.remove('hidden');
-
+            document.getElementById('loading-indicator').classList.remove('hidden');
             try {
-                // Add timestamp to prevent caching
                 const response = await fetch(`${apiUrl}?t=${new Date().getTime()}`);
-                if (!response.ok) {
-                    throw new Error(`伺服器回應錯誤: ${response.status}`);
-                }
-                
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") === -1) {
-                    throw new Error("回傳格式錯誤 (可能是權限不足，請確認部署設定為「任何人」)");
-                }
-
                 const data = await response.json();
-                
-                if (Array.isArray(data)) {
-                    inventory = data.map((item, index) => {
-                        let safeStatus = (item.status || 'in_stock').trim().toLowerCase();
-                        if (safeStatus === '') safeStatus = 'in_stock';
-                        
-                        return {
-                            ...item,
-                            id: String(item.id),
-                            status: safeStatus
-                        };
-                    });
-                } else {
-                    inventory = []; 
-                }
+                inventory = Array.isArray(data) ? data.map(item => ({...item, id: String(item.id), status: (item.status||'in_stock').trim().toLowerCase() || 'in_stock', barcode: item.barcode || ""})) : [];
                 renderCards();
-            } catch (error) {
-                console.error("讀取失敗:", error);
-                alert(`無法從 Google 讀取資料：\n${error.message}`);
-            } finally {
-                loader.classList.add('hidden');
-            }
+            } catch (error) { alert(`讀取失敗：\n${error.message}`); } finally { document.getElementById('loading-indicator').classList.add('hidden'); }
         }
 
-        // New Debug Function
         async function debugCloudData() {
              const apiUrl = localStorage.getItem('myInventoryApiUrl');
              if (!apiUrl) return alert("未設定網址");
@@ -466,13 +425,10 @@
              }
         }
 
-        // 4. UI 渲染
+        // --- 4. UI 渲染 ---
         function initFilters() {
-            // Category Filters
             const container = document.getElementById('sub-filters');
             container.innerHTML = '';
-            
-            // 如果是購物清單，不需要顯示分類篩選
             if (currentTab === 'shopping') {
                 container.innerHTML = '<div class="text-xs text-stone-400 py-1 px-2">🛒 點擊「入庫」即可將物品移回庫存</div>';
             } else {
@@ -481,7 +437,6 @@
                 allBtn.innerText = '全部顯示';
                 allBtn.onclick = () => { currentFilter = 'all'; initFilters(); renderCards(); };
                 container.appendChild(allBtn);
-
                 (categoryOptions[currentTab] || []).forEach(cat => {
                     const btn = document.createElement('button');
                     btn.className = `filter-chip px-4 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap bg-stone-200 text-stone-600 hover:bg-stone-300 ${cat === currentFilter ? 'active' : ''}`;
@@ -490,64 +445,32 @@
                     container.appendChild(btn);
                 });
             }
-
-            // Tag Filters
             initTagFilters();
         }
 
         function initTagFilters() {
             const tagContainer = document.getElementById('tag-filters-container');
             tagContainer.innerHTML = '';
-
-            if (commonTags.length === 0) {
-                tagContainer.classList.add('hidden');
-                return;
-            }
+            if (commonTags.length === 0) { tagContainer.classList.add('hidden'); return; }
             tagContainer.classList.remove('hidden');
-
             commonTags.forEach(tag => {
                 const btn = document.createElement('button');
                 const isActive = currentTagFilter === tag;
-                const baseClass = "px-3 py-1 rounded-full text-[11px] border transition whitespace-nowrap tag-filter";
-                const activeClass = isActive 
-                    ? "bg-stone-500 text-white border-stone-500" 
-                    : "bg-white text-stone-500 border-stone-200 hover:border-stone-400";
-                
-                btn.className = `${baseClass} ${activeClass}`;
+                btn.className = `px-3 py-1 rounded-full text-[11px] border transition whitespace-nowrap tag-filter ${isActive ? "bg-stone-500 text-white border-stone-500" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`;
                 btn.innerHTML = `<i class="fa-solid fa-tag mr-1"></i>${tag}`;
-                btn.onclick = () => {
-                    if (currentTagFilter === tag) {
-                        currentTagFilter = null; 
-                    } else {
-                        currentTagFilter = tag; 
-                    }
-                    initTagFilters(); 
-                    renderCards(); 
-                };
+                btn.onclick = () => { currentTagFilter = currentTagFilter === tag ? null : tag; initTagFilters(); renderCards(); };
                 tagContainer.appendChild(btn);
             });
         }
 
         function switchTab(tabName) {
             if (isSettingsOpen) toggleSettings();
-            currentTab = tabName;
-            currentFilter = 'all';
-            currentTagFilter = null; 
-            
+            currentTab = tabName; currentFilter = 'all'; currentTagFilter = null; 
             ['food', 'living', 'beauty', 'shopping'].forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
-                let activeClass = 'tab-active py-2 flex-1 transition-all';
-                let inactiveClass = 'tab-inactive py-2 flex-1 transition-all';
-                if(t === 'shopping') {
-                    activeClass += ' bg-stone-100 border-l border-stone-200';
-                    inactiveClass += ' bg-stone-50 border-l border-stone-100';
-                }
-                el.className = (t === tabName) ? activeClass : inactiveClass;
+                el.className = (t === tabName) ? `tab-active py-2 flex-1 transition-all ${t==='shopping'?'bg-stone-100 border-l border-stone-200':''}` : `tab-inactive py-2 flex-1 transition-all ${t==='shopping'?'bg-stone-50 border-l border-stone-100':''}`;
             });
-
-            initFilters();
-            renderCards();
-            updateModalCategoryOptions();
+            initFilters(); renderCards(); updateModalCategoryOptions();
             document.getElementById('input-type').value = (tabName === 'shopping') ? 'food' : tabName;
         }
 
@@ -556,71 +479,44 @@
             let htmlContent = ''; 
 
             let filteredData = inventory.filter(item => {
-                // 1. Status Check based on Tab
-                if (currentTab === 'shopping') {
-                    if (item.status !== 'to_buy') return false;
-                } else {
-                    if (item.status === 'to_buy') return false; 
-                    if (item.type !== currentTab) return false;
-                }
-
-                // 2. Search
+                if (currentTab === 'shopping' && item.status !== 'to_buy') return false;
+                if (currentTab !== 'shopping' && (item.status === 'to_buy' || item.type !== currentTab)) return false;
                 const search = searchTerm.toLowerCase();
-                const name = String(item.name || '').toLowerCase();
-                const brand = String(item.brand || '').toLowerCase();
-                if (!name.includes(search) && !brand.includes(search)) return false;
-                
-                // 3. Filters (Skip for shopping)
+                if (!String(item.name||'').toLowerCase().includes(search) && !String(item.brand||'').toLowerCase().includes(search)) return false;
                 if (currentTab !== 'shopping') {
                     if (currentFilter !== 'all' && item.category !== currentFilter) return false;
-                    const tags = String(item.tags || '').toLowerCase();
-                    if (currentTagFilter && !tags.includes(currentTagFilter.toLowerCase())) return false;
+                    if (currentTagFilter && !String(item.tags||'').toLowerCase().includes(currentTagFilter.toLowerCase())) return false;
                 }
                 return true;
             });
 
-            // Sort: Shopping list by name, others by expiry
-            if (currentTab === 'shopping') {
-                filteredData.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-            } else {
-                filteredData.sort((a, b) => getDaysRemaining(a.expiry) - getDaysRemaining(b.expiry));
-            }
+            if (currentTab === 'shopping') filteredData.sort((a, b) => String(a.name||'').localeCompare(String(b.name||'')));
+            else filteredData.sort((a, b) => getDaysRemaining(a.expiry) - getDaysRemaining(b.expiry));
             
-            // Render UI
-            updateAlertBanner(); // Call helper after sorting logic
+            updateAlertBanner();
 
             if (filteredData.length === 0) {
-                container.innerHTML = `<div class="text-center py-10 text-stone-400"><i class="fa-solid fa-box-open text-4xl mb-3 opacity-30"></i><p>這裡空空的...</p></div>`;
-                return;
+                container.innerHTML = `<div class="text-center py-10 text-stone-400"><i class="fa-solid fa-box-open text-4xl mb-3 opacity-30"></i><p>這裡空空的...</p></div>`; return;
             }
 
             filteredData.forEach(item => {
                 const itemId = String(item.id); 
-                const imgUrl = (item.image && item.image.startsWith('http')) ? item.image : ''; // 預設為空，除非有有效網址
-                
-                // 標籤
                 let tagsHtml = String(item.tags || '').split(/[ ,，]+/).map(t => t ? `<span class="text-[10px] text-stone-400 px-1 py-0.5 bg-stone-100 rounded mr-1">#${t}</span>` : '').join('');
                 
-                // --- Card Content Decision ---
-                let cardActionHtml = '';
-                let statusBadgeHtml = '';
-                
+                // 新增：如果商品有條碼綁定，在卡片名稱旁顯示一個小條碼 icon
+                const barcodeIcon = item.barcode ? `<i class="fa-solid fa-barcode text-stone-300 ml-2 text-[10px]" title="已綁定條碼"></i>` : '';
+
+                let cardActionHtml = '', statusBadgeHtml = '';
                 if (currentTab === 'shopping') {
-                    // Shopping Card Style
                     statusBadgeHtml = `<span class="bg-stone-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">待採買</span>`;
                     cardActionHtml = `
                         <div class="flex gap-1 items-center w-full justify-end">
                             <button onclick="window.editItem('${itemId}')" class="text-stone-400 hover:text-blue-600 p-2"><i class="fa-solid fa-pen"></i></button>
                             <button onclick="window.deleteItem('${itemId}')" class="text-stone-400 hover:text-red-600 p-2"><i class="fa-solid fa-trash-can"></i></button>
-                            <button onclick="window.confirmRestock('${itemId}')" class="bg-green-600 text-white text-xs px-3 py-2 rounded shadow hover:bg-green-700 flex items-center ml-1">
-                                <i class="fa-solid fa-check mr-1"></i> 入庫
-                            </button>
-                        </div>
-                    `;
+                            <button onclick="window.confirmRestock('${itemId}')" class="bg-green-600 text-white text-xs px-3 py-2 rounded shadow hover:bg-green-700 flex items-center ml-1"><i class="fa-solid fa-check mr-1"></i> 入庫</button>
+                        </div>`;
                 } else {
-                    // Inventory Card Style
-                    const days = getDaysRemaining(item.expiry);
-                    const status = getStatusInfo(days);
+                    const status = getStatusInfo(getDaysRemaining(item.expiry));
                     statusBadgeHtml = `<span class="${status.class} text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"><i class="fa-solid ${status.icon} mr-1"></i>${status.text}</span>`;
                     cardActionHtml = `
                         <div class="text-[10px] text-stone-400 mr-auto">效期: ${item.expiry ? item.expiry.substring(0, 10) : '未設定'}</div>
@@ -630,58 +526,39 @@
                     `;
                 }
 
-                // --- Layout without Image ---
-                // Removed image section completely
                 htmlContent += `
                 <div class="bg-white rounded-xl overflow-hidden card-shadow p-4 relative border border-stone-100 mb-4">
                     <div class="flex justify-between items-start mb-1">
                         <div class="flex flex-col flex-1 mr-2">
                             <span class="text-[10px] font-bold text-stone-400 tracking-wide uppercase truncate pr-2">${item.brand || ''}</span>
                             <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-stone-800 text-base leading-tight line-clamp-1">${item.name}</h3>
+                                <h3 class="font-bold text-stone-800 text-base leading-tight line-clamp-1">${item.name}${barcodeIcon}</h3>
                                 <span class="bg-stone-100 text-stone-600 text-[10px] font-bold px-1.5 py-0.5 rounded">x${item.qty}</span>
                             </div>
                         </div>
                         ${statusBadgeHtml}
                     </div>
-                    
                     <div class="mt-2 flex flex-wrap gap-1 items-center">
                         <span class="text-[10px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-medium">${item.category}</span>
                         ${tagsHtml}
                     </div>
                     ${item.notes ? `<div class="mt-2 text-[11px] text-stone-500 bg-yellow-50 p-2 rounded border border-yellow-100 flex items-start"><i class="fa-regular fa-sticky-note mr-1 mt-0.5 text-yellow-600"></i>${item.notes}</div>` : ''}
-                    
-                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-stone-50">
-                        ${cardActionHtml}
-                    </div>
+                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-stone-50">${cardActionHtml}</div>
                 </div>`;
             });
             container.innerHTML = htmlContent;
         }
 
         // --- User Actions ---
-
         window.decreaseQty = async function(id) {
             const item = inventory.find(i => i.id === id);
             if (!item) return;
-            
             if (parseInt(item.qty) > 1) {
-                // 防呆：即使數量大於 1，也要確認
                 if (!confirm(`確定要減少「${item.name}」的數量嗎？ (目前 ${item.qty} 個)`)) return;
-                
-                item.qty--;
-                await saveToCloud('update', item);
-                renderCards();
+                item.qty--; await saveToCloud('update', item); renderCards();
             } else {
-                // 剩 1 個時的邏輯：取消即是取消動作，不是刪除
                 if (confirm(`「${item.name}」只剩 1 個了！\n\n按「確定」：加入採買清單\n按「取消」：維持現狀`)) {
-                    item.status = 'to_buy';
-                    item.qty = 1; 
-                    await saveToCloud('update', item);
-                    // 切換到購物清單讓用戶看到變化
-                    switchTab('shopping');
-                } else {
-                    // Do nothing - User cancelled the action
+                    item.status = 'to_buy'; item.qty = 1; await saveToCloud('update', item); switchTab('shopping');
                 }
             }
         }
@@ -693,78 +570,48 @@
             document.getElementById('restock-item-name').innerText = item.name;
             document.getElementById('restock-expiry').valueAsDate = new Date(); 
             document.getElementById('restock-qty').value = 1;
-            
             const modal = document.getElementById('restock-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => { 
-                document.getElementById('restock-content').classList.remove('scale-95', 'opacity-0'); 
-                document.getElementById('restock-content').classList.add('scale-100', 'opacity-100'); 
-            }, 10);
+            modal.classList.remove('hidden'); setTimeout(() => { document.getElementById('restock-content').classList.remove('scale-95', 'opacity-0'); document.getElementById('restock-content').classList.add('scale-100', 'opacity-100'); }, 10);
         }
 
         document.getElementById('restock-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('restock-id').value;
-            const newExpiry = document.getElementById('restock-expiry').value;
-            const newQty = document.getElementById('restock-qty').value;
-            
             const item = inventory.find(i => i.id === id);
             if (item) {
-                const updatedItem = {
-                    ...item,
-                    status: 'in_stock',
-                    expiry: newExpiry,
-                    qty: parseInt(newQty)
-                };
-                
+                const updatedItem = { ...item, status: 'in_stock', expiry: document.getElementById('restock-expiry').value, qty: parseInt(document.getElementById('restock-qty').value) };
                 closeModal('restock-modal');
-                const result = await saveToCloud('update', updatedItem);
-                if(result) {
-                    const index = inventory.findIndex(i => i.id === id);
-                    inventory[index] = updatedItem; // 本地直接更新
-                    alert(`✅ ${item.name} 已入庫！`);
-                    switchTab(item.type); 
+                if(await saveToCloud('update', updatedItem)) {
+                    inventory[inventory.findIndex(i => i.id === id)] = updatedItem; alert(`✅ ${item.name} 已入庫！`); switchTab(item.type); 
                 }
             }
         });
 
         window.deleteItem = async function(id) {
             if(!confirm("確定要刪除嗎？")) return;
-            const result = await saveToCloud('delete', { id: id });
-            if(result) {
-                inventory = inventory.filter(i => i.id !== id);
-                renderCards();
-            }
+            if(await saveToCloud('delete', { id: id })) { inventory = inventory.filter(i => i.id !== id); renderCards(); }
         }
 
         window.editItem = function(id) {
             const item = inventory.find(i => i.id === id);
             if (!item) return;
             
-            // Check status to determine expiry field visibility
             const isToBuy = item.status === 'to_buy';
             const expiryContainer = document.getElementById('modal-expiry-container');
             const expiryInput = document.getElementById('input-expiry');
             
-            if (isToBuy) {
-                expiryContainer.classList.add('hidden');
-                expiryInput.required = false;
-            } else {
-                expiryContainer.classList.remove('hidden');
-                expiryInput.required = true;
-            }
+            if (isToBuy) { expiryContainer.classList.add('hidden'); expiryInput.required = false; } 
+            else { expiryContainer.classList.remove('hidden'); expiryInput.required = true; }
 
             document.getElementById('edit-id').value = item.id;
             document.getElementById('input-status').value = item.status; 
+            document.getElementById('input-barcode').value = item.barcode || ""; // 填入現有條碼
             document.getElementById('input-type').value = item.type;
             updateModalCategoryOptions();
             document.getElementById('input-name').value = item.name;
             document.getElementById('input-category').value = item.category;
             document.getElementById('input-qty').value = item.qty;
-            if (item.expiry) {
-                document.getElementById('input-expiry').value = item.expiry.substring(0, 10);
-            }
-            // Removed image input
+            if (item.expiry) document.getElementById('input-expiry').value = item.expiry.substring(0, 10);
             document.getElementById('input-tags').value = item.tags;
             document.getElementById('input-notes').value = item.notes;
             document.getElementById('modal-title').innerText = "編輯物品";
@@ -772,285 +619,87 @@
             
             const modal = document.getElementById('add-modal');
             modal.classList.remove('hidden');
-            setTimeout(() => { 
-                document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0'); 
-                document.getElementById('modal-content').classList.add('scale-100', 'opacity-100'); 
-            }, 10);
+            setTimeout(() => { document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0'); document.getElementById('modal-content').classList.add('scale-100', 'opacity-100'); }, 10);
             renderModalQuickTags();
         }
 
-        // --- Settings / Tags Management ---
-        function toggleSettings() {
-            isSettingsOpen = !isSettingsOpen;
-            if (isSettingsOpen) {
-                document.getElementById('view-main').classList.add('hidden-view');
-                document.getElementById('main-header-content').classList.add('hidden');
-                document.getElementById('view-settings').classList.remove('hidden-view');
-                document.getElementById('settings-icon').className = "fa-solid fa-times text-lg text-stone-800";
-                renderSettingsCategories(); renderSettingsCommonTags(); 
-                cancelEditCommonTag(); // Reset edit state when entering settings
-                document.getElementById('settings-api-url').value = localStorage.getItem('myInventoryApiUrl') || '';
-            } else {
-                document.getElementById('view-settings').classList.add('hidden-view');
-                document.getElementById('view-main').classList.remove('hidden-view');
-                document.getElementById('main-header-content').classList.remove('hidden');
-                document.getElementById('settings-icon').className = "fa-solid fa-gear text-lg";
-                initFilters(); renderCards();
-            }
-        }
+        // --- Settings Management ---
+        function toggleSettings() { isSettingsOpen = !isSettingsOpen; const v = document.getElementById('view-settings'), m = document.getElementById('view-main'), h = document.getElementById('main-header-content'), i = document.getElementById('settings-icon'); if (isSettingsOpen) { m.classList.add('hidden-view'); h.classList.add('hidden'); v.classList.remove('hidden-view'); i.className = "fa-solid fa-times text-lg text-stone-800"; renderSettingsCategories(); renderSettingsCommonTags(); cancelEditCommonTag(); document.getElementById('settings-api-url').value = localStorage.getItem('myInventoryApiUrl') || ''; } else { v.classList.add('hidden-view'); m.classList.remove('hidden-view'); h.classList.remove('hidden'); i.className = "fa-solid fa-gear text-lg"; initFilters(); renderCards(); } }
+        function renderSettingsCategories() { ['food', 'living', 'beauty'].forEach(t => { const c = document.getElementById(`settings-tags-${t}`); c.innerHTML = ''; (categoryOptions[t] || []).forEach(cat => { const tag = document.createElement('div'); tag.className = "flex items-center bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-sm mb-1 mr-1"; tag.innerHTML = `<span>${cat}</span><button onclick="window.removeCategory('${t}', '${cat}')" class="ml-2 text-stone-400 hover:text-red-500 p-1"><i class="fa-solid fa-times-circle"></i></button>`; c.appendChild(tag); }); }); }
+        function renderSettingsCommonTags() { const c = document.getElementById('settings-common-tags'); c.innerHTML = ''; commonTags.forEach(tag => { const b = document.createElement('button'); const isEditing = editingTagOriginalValue === tag; b.className = `flex items-center px-3 py-2 rounded-lg text-sm border font-medium transition settings-tag-chip ${isEditing ? "bg-yellow-100 border-yellow-400 text-yellow-800 ring-2 ring-yellow-200 editing" : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50 hover:border-stone-300"}`; b.innerHTML = `<i class="fa-solid fa-tag mr-2 text-xs opacity-70"></i>${tag}`; b.onclick = function() { window.startEditingTag(tag); }; c.appendChild(b); }); }
+        window.startEditingTag = function(tag) { editingTagOriginalValue = tag; const i = document.getElementById('new-common-tag'); i.value = tag; i.focus(); document.getElementById('tag-input-label').innerText = "編輯標籤"; document.getElementById('btn-save-tag').innerText = "更新"; document.getElementById('btn-save-tag').className = "bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700 font-medium whitespace-nowrap shadow-sm"; document.getElementById('edit-tag-actions').classList.remove('hidden'); renderSettingsCommonTags(); }
+        window.cancelEditCommonTag = function() { editingTagOriginalValue = null; document.getElementById('new-common-tag').value = ''; document.getElementById('tag-input-label').innerText = "新增標籤"; document.getElementById('btn-save-tag').innerText = "新增"; document.getElementById('btn-save-tag').className = "bg-stone-600 text-white px-4 py-2 rounded text-sm hover:bg-stone-700 font-medium whitespace-nowrap shadow-sm"; document.getElementById('edit-tag-actions').classList.add('hidden'); renderSettingsCommonTags(); }
+        window.handleSaveTag = function() { const val = document.getElementById('new-common-tag').value.trim(); if (!val) return; if (editingTagOriginalValue) { if (commonTags.includes(val) && val !== editingTagOriginalValue) return alert("標籤已存在"); const index = commonTags.indexOf(editingTagOriginalValue); if (index !== -1) commonTags[index] = val; } else { if (!commonTags.includes(val)) commonTags.push(val); else return alert("標籤已存在"); } localStorage.setItem('myInventoryCommonTags', JSON.stringify(commonTags)); cancelEditCommonTag(); }
+        window.handleDeleteTag = function() { if (editingTagOriginalValue && confirm(`確定要刪除標籤「${editingTagOriginalValue}」嗎？`)) { commonTags = commonTags.filter(t => t !== editingTagOriginalValue); localStorage.setItem('myInventoryCommonTags', JSON.stringify(commonTags)); cancelEditCommonTag(); } }
+        window.addCategory = function(type) { const i = document.getElementById(`new-tag-${type}`); const val = i.value.trim(); if (val && !categoryOptions[type].includes(val)) { categoryOptions[type].push(val); localStorage.setItem('myInventoryCategories', JSON.stringify(categoryOptions)); renderSettingsCategories(); i.value = ''; } }
+        window.removeCategory = function(type, val) { if (confirm(`確定要刪除「${val}」分類嗎？`)) { categoryOptions[type] = categoryOptions[type].filter(c => c !== val); localStorage.setItem('myInventoryCategories', JSON.stringify(categoryOptions)); renderSettingsCategories(); } }
+        function saveApiUrl() { localStorage.setItem('myInventoryApiUrl', document.getElementById('settings-api-url').value.trim()); alert("連結已儲存"); fetchCloudData(); }
+        function resetToDefaults() { if (confirm("重置分類與標籤設定？")) { localStorage.removeItem('myInventoryCategories'); localStorage.removeItem('myInventoryCommonTags'); categoryOptions = JSON.parse(JSON.stringify(defaultCategories)); commonTags = JSON.parse(JSON.stringify(defaultCommonTags)); renderSettingsCategories(); renderSettingsCommonTags(); alert("已重置"); } }
 
-        function renderSettingsCategories() {
-            ['food', 'living', 'beauty'].forEach(t => {
-                const container = document.getElementById(`settings-tags-${t}`);
-                container.innerHTML = '';
-                (categoryOptions[t] || []).forEach(cat => {
-                    const tag = document.createElement('div');
-                    tag.className = "flex items-center bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-sm mb-1 mr-1";
-                    tag.innerHTML = `<span>${cat}</span><button onclick="window.removeCategory('${t}', '${cat}')" class="ml-2 text-stone-400 hover:text-red-500 p-1"><i class="fa-solid fa-times-circle"></i></button>`;
-                    container.appendChild(tag);
-                });
-            });
-        }
-
-        // --- Common Tags Management (Simpler Logic) ---
-        function renderSettingsCommonTags() {
-            const container = document.getElementById('settings-common-tags');
-            container.innerHTML = '';
-            commonTags.forEach(tag => {
-                const btn = document.createElement('button');
-                const isEditing = editingTagOriginalValue === tag;
-                
-                let baseClasses = "flex items-center px-3 py-2 rounded-lg text-sm border font-medium transition settings-tag-chip";
-                let stateClasses = isEditing 
-                    ? "bg-yellow-100 border-yellow-400 text-yellow-800 ring-2 ring-yellow-200 editing"
-                    : "bg-white border-stone-200 text-stone-600 hover:bg-stone-50 hover:border-stone-300";
-                
-                btn.className = `${baseClasses} ${stateClasses}`;
-                btn.innerHTML = `<i class="fa-solid fa-tag mr-2 text-xs opacity-70"></i>${tag}`;
-                
-                btn.onclick = function() {
-                    window.startEditingTag(tag);
-                };
-                
-                container.appendChild(btn);
-            });
-        }
-
-        window.startEditingTag = function(tag) {
-            editingTagOriginalValue = tag;
-            const input = document.getElementById('new-common-tag');
-            input.value = tag;
-            input.focus();
-            
-            // UI Updates
-            document.getElementById('tag-input-label').innerText = "編輯標籤";
-            document.getElementById('btn-save-tag').innerText = "更新";
-            document.getElementById('btn-save-tag').className = "bg-yellow-600 text-white px-4 py-2 rounded text-sm hover:bg-yellow-700 font-medium whitespace-nowrap shadow-sm";
-            document.getElementById('edit-tag-actions').classList.remove('hidden');
-            
-            renderSettingsCommonTags(); // Re-render to highlight selected
-        }
-
-        window.cancelEditCommonTag = function() {
-            editingTagOriginalValue = null;
-            document.getElementById('new-common-tag').value = '';
-            
-            // UI Reset
-            document.getElementById('tag-input-label').innerText = "新增標籤";
-            document.getElementById('btn-save-tag').innerText = "新增";
-            document.getElementById('btn-save-tag').className = "bg-stone-600 text-white px-4 py-2 rounded text-sm hover:bg-stone-700 font-medium whitespace-nowrap shadow-sm";
-            document.getElementById('edit-tag-actions').classList.add('hidden');
-            
-            renderSettingsCommonTags();
-        }
-
-        window.handleSaveTag = function() {
-            const input = document.getElementById('new-common-tag');
-            const val = input.value.trim();
-            if (!val) return;
-
-            if (editingTagOriginalValue) {
-                // Update
-                if (commonTags.includes(val) && val !== editingTagOriginalValue) {
-                    alert("該標籤已存在！");
-                    return;
-                }
-                const index = commonTags.indexOf(editingTagOriginalValue);
-                if (index !== -1) {
-                    commonTags[index] = val;
-                }
-            } else {
-                // Add
-                if (!commonTags.includes(val)) {
-                    commonTags.push(val);
-                } else {
-                    alert("該標籤已存在！");
-                    return;
-                }
-            }
-            
-            localStorage.setItem('myInventoryCommonTags', JSON.stringify(commonTags));
-            cancelEditCommonTag(); // Reset UI
-        }
-
-        window.handleDeleteTag = function() {
-            if (editingTagOriginalValue) {
-                if (confirm(`確定要刪除常用標籤「${editingTagOriginalValue}」嗎？`)) {
-                    commonTags = commonTags.filter(t => t !== editingTagOriginalValue);
-                    localStorage.setItem('myInventoryCommonTags', JSON.stringify(commonTags));
-                    cancelEditCommonTag();
-                }
-            }
-        }
-        // --- End Common Tags ---
-
-        window.addCategory = function(type) {
-            const input = document.getElementById(`new-tag-${type}`);
-            const val = input.value.trim();
-            if (val && !categoryOptions[type].includes(val)) {
-                categoryOptions[type].push(val);
-                localStorage.setItem('myInventoryCategories', JSON.stringify(categoryOptions));
-                renderSettingsCategories();
-                input.value = '';
-            }
-        }
-
-        window.removeCategory = function(type, val) {
-            if (confirm(`確定要刪除「${val}」分類嗎？`)) {
-                categoryOptions[type] = categoryOptions[type].filter(c => c !== val);
-                localStorage.setItem('myInventoryCategories', JSON.stringify(categoryOptions));
-                renderSettingsCategories();
-            }
-        }
-
-        function saveApiUrl() {
-            const url = document.getElementById('settings-api-url').value.trim();
-            localStorage.setItem('myInventoryApiUrl', url);
-            alert("連結設定已儲存！將嘗試同步資料...");
-            fetchCloudData();
-        }
-
-        function resetToDefaults() {
-            if (confirm("這將會重置所有分類與標籤設定，確定嗎？")) {
-                localStorage.removeItem('myInventoryCategories');
-                localStorage.removeItem('myInventoryCommonTags');
-                categoryOptions = JSON.parse(JSON.stringify(defaultCategories));
-                commonTags = JSON.parse(JSON.stringify(defaultCommonTags));
-                renderSettingsCategories();
-                renderSettingsCommonTags();
-                alert("已重置設定。");
-            }
-        }
-
-        // Modal Logic
+        // --- Modal Logic ---
         function openAddModal() {
             document.getElementById('edit-id').value = "";
             document.getElementById('add-form').reset();
             
             const isShopping = currentTab === 'shopping';
-            
             document.getElementById('modal-title').innerText = isShopping ? "新增待買物品" : "新增物品";
             document.getElementById('submit-btn-text').innerText = isShopping ? "加入清單" : "加入庫存";
             document.getElementById('input-type').value = isShopping ? 'food' : currentTab;
             document.getElementById('input-status').value = isShopping ? 'to_buy' : 'in_stock';
+            document.getElementById('input-barcode').value = ""; // 清空條碼
             
-            // Expiry Visibility Control
             const expiryContainer = document.getElementById('modal-expiry-container');
             const expiryInput = document.getElementById('input-expiry');
             
-            if (isShopping) {
-                expiryContainer.classList.add('hidden');
-                expiryInput.required = false;
-                expiryInput.value = ""; 
-            } else {
-                expiryContainer.classList.remove('hidden');
-                expiryInput.required = true;
-                expiryInput.valueAsDate = new Date();
-            }
+            if (isShopping) { expiryContainer.classList.add('hidden'); expiryInput.required = false; expiryInput.value = ""; } 
+            else { expiryContainer.classList.remove('hidden'); expiryInput.required = true; expiryInput.valueAsDate = new Date(); }
             
             updateModalCategoryOptions(); renderModalQuickTags();
             const modal = document.getElementById('add-modal');
             modal.classList.remove('hidden');
             setTimeout(() => { document.getElementById('modal-content').classList.remove('scale-95', 'opacity-0'); document.getElementById('modal-content').classList.add('scale-100', 'opacity-100'); }, 10);
         }
-        function closeModal(id) {
-            const content = document.getElementById(id === 'add-modal' ? 'modal-content' : 'restock-content');
-            content.classList.remove('scale-100', 'opacity-100'); content.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => document.getElementById(id).classList.add('hidden'), 200);
-        }
-        function renderModalQuickTags() {
-            const c = document.getElementById('modal-quick-tags'); c.innerHTML = '';
-            commonTags.forEach(t => {
-                const b = document.createElement('button'); b.type='button';
-                b.className = "text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded hover:bg-stone-200";
-                b.innerText = t;
-                b.onclick = () => { const i = document.getElementById('input-tags'); i.value = i.value ? i.value + ", " + t : t; };
-                c.appendChild(b);
-            });
-        }
-        function updateModalCategoryOptions() {
-            const t = document.getElementById('input-type').value;
-            const s = document.getElementById('input-category');
-            s.innerHTML = '';
-            (categoryOptions[t]||[]).forEach(c => { const o = document.createElement('option'); o.value = c; o.innerText = c; s.appendChild(o); });
-        }
+        function closeModal(id) { const content = document.getElementById(id === 'add-modal' ? 'modal-content' : 'restock-content'); content.classList.remove('scale-100', 'opacity-100'); content.classList.add('scale-95', 'opacity-0'); setTimeout(() => document.getElementById(id).classList.add('hidden'), 200); }
+        function renderModalQuickTags() { const c = document.getElementById('modal-quick-tags'); c.innerHTML = ''; commonTags.forEach(t => { const b = document.createElement('button'); b.type='button'; b.className = "text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded hover:bg-stone-200"; b.innerText = t; b.onclick = () => { const i = document.getElementById('input-tags'); i.value = i.value ? i.value + ", " + t : t; }; c.appendChild(b); }); }
+        function updateModalCategoryOptions() { const t = document.getElementById('input-type').value; const s = document.getElementById('input-category'); s.innerHTML = ''; (categoryOptions[t]||[]).forEach(c => { const o = document.createElement('option'); o.value = c; o.innerText = c; s.appendChild(o); }); }
 
         document.getElementById('add-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('submit-btn');
-            const txt = document.getElementById('submit-btn-text').innerText;
+            const btn = document.getElementById('submit-btn'); const txt = document.getElementById('submit-btn-text').innerText;
             btn.innerHTML = '<div class="spinner border-white border-t-transparent"></div>'; btn.disabled = true;
             
             const editId = document.getElementById('edit-id').value;
+            const inputStatus = document.getElementById('input-status').value;
+            
+            // 加入 Barcode 到 itemData 中
             const itemData = {
                 type: document.getElementById('input-type').value,
                 name: document.getElementById('input-name').value,
-                expiry: document.getElementById('input-expiry').value,
+                expiry: inputStatus === 'to_buy' ? "" : document.getElementById('input-expiry').value,
                 category: document.getElementById('input-category').value,
                 qty: parseInt(document.getElementById('input-qty').value),
                 tags: document.getElementById('input-tags').value,
                 notes: document.getElementById('input-notes').value,
-                image: "", // Image removed
-                status: document.getElementById('input-status').value, 
-                brand: ""
+                image: "", 
+                status: inputStatus, 
+                brand: "",
+                barcode: document.getElementById('input-barcode').value // 讀取條碼資料
             };
 
             let success = false;
             if(editId) {
                 const old = inventory.find(i => i.id === editId);
-                // 修正：成功更新後，立即更新本地 inventory 陣列，這樣畫面才會變
                 if(old) {
                     const updatedItem = { ...old, ...itemData };
                     success = await saveToCloud('update', updatedItem);
-                    if (success) {
-                        const index = inventory.findIndex(i => i.id === editId);
-                        inventory[index] = updatedItem; // 本地立即更新
-                        alert("✅ 資料已更新！"); // 視覺回饋
-                        
-                        // 自動切換到正確的分頁
-                        if(updatedItem.status === 'to_buy') {
-                            switchTab('shopping');
-                        } else {
-                            switchTab(updatedItem.type);
-                        }
-                    }
+                    if (success) { inventory[inventory.findIndex(i => i.id === editId)] = updatedItem; switchTab(updatedItem.status === 'to_buy' ? 'shopping' : updatedItem.type); }
                 }
             } else {
                 success = await saveToCloud('create', itemData);
                 if(success) {
-                    // 重要修正：成功後，直接使用後端回傳的 ID 來建立本地物件，不要等 fetchCloudData
-                    const newItem = {
-                        ...itemData,
-                        id: String(success.id) // 使用後端產生的 ID
-                    };
-                    inventory.push(newItem); // 本地立即新增
-                    alert("✅ 新增成功！");
-                    
-                    if(newItem.status === 'to_buy') {
-                        switchTab('shopping');
-                    } else {
-                        switchTab(newItem.type);
-                    }
+                    const newItem = { ...itemData, id: String(success.id) };
+                    inventory.push(newItem);
+                    switchTab(newItem.status === 'to_buy' ? 'shopping' : newItem.type);
                 }
             }
 
